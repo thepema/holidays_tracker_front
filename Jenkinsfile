@@ -2,75 +2,109 @@ pipeline {
   agent any
 
   environment {
-    // Configure these values in Jenkins (Manage Jenkins > System > Global properties).
-    DEPLOY_SSH_CREDENTIALS_ID = 'holiday-tracker-deploy-key'
-    DEPLOY_HOST = ''
-    DEPLOY_USER = ''
-    DEPLOY_PROD_PATH = '/var/www/holiday-tracker'
-    DEPLOY_DEV_PATH = '/var/www/holiday-tracker-dev'
+    LETSENCRYPT_EMAIL = 'info@maisonzaro.com'
+  }
+
+  options {
+    timestamps()
+    disableConcurrentBuilds()
   }
 
   stages {
-    stage('Install dependencies') {
+    stage('Checkout') {
       steps {
-        sh 'node --version && npm --version'
-        sh 'npm install --no-audit --no-fund'
+        checkout scm
       }
     }
 
-    stage('Build') {
+    stage('Configure deployment target') {
       steps {
-        sh 'npm run build -- --configuration production'
+        script {
+          def branch = (env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown')
+            .replaceFirst(/^origin\//, '')
+            .replaceFirst(/^refs\/heads\//, '')
+            .replaceFirst(/^\*\//, '')
+
+          switch (branch) {
+            case ['development', 'develop']:
+              env.APP_NAME = 'holiday-tracker-front-dev'
+              env.APP_DOMAIN = 'holiday-tracker.dev.maisonzaro.com'
+              env.APP_PORT = '80'
+              env.IMAGE_NAME = "holiday-tracker-front:dev-${env.BUILD_NUMBER}"
+              break
+            case 'main':
+              env.APP_NAME = 'holiday-tracker-front'
+              env.APP_DOMAIN = 'holiday-tracker.maisonzaro.com'
+              env.APP_PORT = '80'
+              env.IMAGE_NAME = "holiday-tracker-front:prod-${env.BUILD_NUMBER}"
+              break
+            default:
+              def safeBranch = branch.replaceAll(/[^a-zA-Z0-9_.-]/, '-')
+              env.APP_NAME = ''
+              env.IMAGE_NAME = "holiday-tracker-front:${safeBranch}-${env.BUILD_NUMBER}"
+              echo "Branch '${branch}' is not configured for deployment; build and verification only."
+          }
+
+          def deployEnabled = ['holiday-tracker-front-dev', 'holiday-tracker-front'].contains(env.APP_NAME)
+          echo "Branch '${branch}': deploy=${deployEnabled}, domain=${env.APP_DOMAIN ?: 'n/a'}, port=${env.APP_PORT ?: 'n/a'}"
+        }
+      }
+    }
+
+    stage('Build and verify image') {
+      steps {
+        sh '''#!/bin/sh
+          set -eu
+          docker build --pull -t "$IMAGE_NAME" .
+          docker run --rm "$IMAGE_NAME" nginx -t
+        '''
       }
     }
 
     stage('Deploy') {
       when {
-        anyOf {
-          branch 'main'
-          branch 'develop'
-        }
+        expression { ['holiday-tracker-front-dev', 'holiday-tracker-front'].contains(env.APP_NAME) }
       }
       steps {
-        script {
-          def remotePath = env.BRANCH_NAME == 'main' ? env.DEPLOY_PROD_PATH : env.DEPLOY_DEV_PATH
-          def siteUrl = env.BRANCH_NAME == 'main'
-            ? 'https://holiday-tracker.maisonzaro.com'
-            : 'https://holiday-tracker.dev.maisonzaro.com'
+        sh '''#!/bin/sh
+          set -eu
+          docker rm -f "$APP_NAME" || true
 
-          if (!env.DEPLOY_HOST?.trim() || !env.DEPLOY_USER?.trim()) {
-            error('Configure DEPLOY_HOST and DEPLOY_USER in Jenkins before deploying.')
-          }
-
-          if (!remotePath?.trim()) {
-            error("The deployment path for branch ${env.BRANCH_NAME} is empty.")
-          }
-
-          echo "Deploying ${env.BRANCH_NAME} to ${siteUrl} (${env.DEPLOY_HOST}:${remotePath})"
-
-          sshagent(credentials: [env.DEPLOY_SSH_CREDENTIALS_ID]) {
-            sh '''#!/bin/sh
-              set -eu
-              ssh -o BatchMode=yes "$DEPLOY_USER@$DEPLOY_HOST" "mkdir -p '$REMOTE_PATH'"
-              rsync -az --delete -e "ssh -o BatchMode=yes" \
-                dist/holidays-tracker-front/browser/ \
-                "$DEPLOY_USER@$DEPLOY_HOST:$REMOTE_PATH/"
-            '''
-          }
-        }
-      }
-      environment {
-        REMOTE_PATH = "${env.BRANCH_NAME == 'main' ? env.DEPLOY_PROD_PATH : env.DEPLOY_DEV_PATH}"
+          docker run -d \\
+            --name "$APP_NAME" \\
+            --restart unless-stopped \\
+            --network proxy \\
+            -e VIRTUAL_HOST="$APP_DOMAIN" \\
+            -e VIRTUAL_PORT="$APP_PORT" \\
+            -e LETSENCRYPT_HOST="$APP_DOMAIN" \\
+            -e LETSENCRYPT_EMAIL="$LETSENCRYPT_EMAIL" \\
+            "$IMAGE_NAME"
+        '''
       }
     }
-  }
 
-  post {
-    success {
-      echo 'Pipeline completed successfully.'
-    }
-    failure {
-      echo 'Pipeline failed. Check the stage logs for details.'
+    stage('Health check') {
+      when {
+        expression { ['holiday-tracker-front-dev', 'holiday-tracker-front'].contains(env.APP_NAME) }
+      }
+      steps {
+        sh '''#!/bin/sh
+          set -eu
+          attempt=1
+          while [ "$attempt" -le 10 ]; do
+            if docker exec "$APP_NAME" wget -q -O /dev/null http://127.0.0.1/; then
+              echo "Health check passed inside container."
+              exit 0
+            fi
+            echo "Waiting for app readiness (attempt $attempt/10)..."
+            sleep 3
+            attempt=$((attempt + 1))
+          done
+          echo "Health check failed; recent container logs:"
+          docker logs --tail 50 "$APP_NAME" || true
+          exit 1
+        '''
+      }
     }
   }
 }
