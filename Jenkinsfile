@@ -26,27 +26,30 @@ pipeline {
             .replaceFirst(/^\*\//, '')
 
           switch (branch) {
-            case ['development', 'develop']:
+            case ['dev', 'development', 'develop']:
               env.APP_NAME = 'holiday-tracker-front-dev'
               env.APP_DOMAIN = 'holiday-tracker.dev.maisonzaro.com'
               env.APP_PORT = '80'
+              env.BUILD_CONFIGURATION = 'development'
               env.IMAGE_NAME = "holiday-tracker-front:dev-${env.BUILD_NUMBER}"
               break
             case 'main':
               env.APP_NAME = 'holiday-tracker-front'
               env.APP_DOMAIN = 'holiday-tracker.maisonzaro.com'
               env.APP_PORT = '80'
+              env.BUILD_CONFIGURATION = 'production'
               env.IMAGE_NAME = "holiday-tracker-front:prod-${env.BUILD_NUMBER}"
               break
             default:
               def safeBranch = branch.replaceAll(/[^a-zA-Z0-9_.-]/, '-')
               env.APP_NAME = ''
+              env.BUILD_CONFIGURATION = 'production'
               env.IMAGE_NAME = "holiday-tracker-front:${safeBranch}-${env.BUILD_NUMBER}"
               echo "Branch '${branch}' is not configured for deployment; build and verification only."
           }
 
           def deployEnabled = ['holiday-tracker-front-dev', 'holiday-tracker-front'].contains(env.APP_NAME)
-          echo "Branch '${branch}': deploy=${deployEnabled}, domain=${env.APP_DOMAIN ?: 'n/a'}, port=${env.APP_PORT ?: 'n/a'}"
+          echo "Branch '${branch}': configuration=${env.BUILD_CONFIGURATION}, deploy=${deployEnabled}, domain=${env.APP_DOMAIN ?: 'n/a'}, port=${env.APP_PORT ?: 'n/a'}"
         }
       }
     }
@@ -55,7 +58,7 @@ pipeline {
       steps {
         sh '''#!/bin/sh
           set -eu
-          docker build --pull -t "$IMAGE_NAME" .
+          docker build --pull --build-arg BUILD_CONFIGURATION="$BUILD_CONFIGURATION" -t "$IMAGE_NAME" .
           docker run --rm "$IMAGE_NAME" nginx -t
         '''
       }

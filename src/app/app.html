@@ -5,5 +5,16 @@
     <p class="description">
       Organiza tus vacaciones y lleva el control de tus días libres.
     </p>
+
+    <section class="api-result" aria-labelledby="api-title" aria-live="polite">
+      <h2 id="api-title">Respuesta de la API</h2>
+      @if (loading) {
+        <p>Consultando...</p>
+      } @else if (errorMessage) {
+        <p class="api-error">{{ errorMessage }}</p>
+      } @else {
+        <pre>{{ apiResponse }}</pre>
+      }
+    </section>
   </section>
 </main>

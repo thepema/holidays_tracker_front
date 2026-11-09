@@ -6,7 +6,9 @@ COPY package.json ./
 RUN npm install --no-audit --no-fund
 
 COPY . .
-RUN npm run build -- --configuration production
+
+ARG BUILD_CONFIGURATION=production
+RUN npm run build -- --configuration "$BUILD_CONFIGURATION"
 
 FROM nginx:alpine AS runtime
 
