@@ -1,4 +1,4 @@
-:host {
+ :host {
   display: block;
   min-height: 100vh;
 }
@@ -33,4 +33,29 @@ h1 {
   color: #5b6270;
   font-size: 1.125rem;
   line-height: 1.6;
+}
+
+.api-result {
+  margin-top: 2rem;
+  padding: 1.25rem;
+  border: 1px solid #e0e4f2;
+  border-radius: 0.75rem;
+  background: #fff;
+  text-align: left;
+}
+
+.api-result h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1.125rem;
+}
+
+.api-result pre {
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.api-error {
+  color: #b42318;
 }

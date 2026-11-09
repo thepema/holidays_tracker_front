@@ -1,4 +1,7 @@
 import { bootstrapApplication } from '@angular/platform-browser';
+import { provideHttpClient } from '@angular/common/http';
 import { App } from './app/app';
 
-bootstrapApplication(App).catch((error: unknown) => console.error(error));
+bootstrapApplication(App, {
+  providers: [provideHttpClient()],
+}).catch((error: unknown) => console.error(error));
