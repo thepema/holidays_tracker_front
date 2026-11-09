@@ -19,19 +19,19 @@ La aplicación estará disponible en `http://localhost:4200/`.
 
 ## Despliegue local con Docker
 
-Con el servicio backend iniciado en el puerto `8080`, ejecuta desde la raíz del proyecto:
+El backend `holidays_tracker_ws` debe estar ejecutándose en el puerto local `8080` (por ejemplo, configurando `PORT=8080` al iniciarlo). Desde la raíz de este repositorio, ejecuta:
 
 ```bash
 docker compose -f docker-compose.local.yml up --build
 ```
 
-La aplicación estará disponible en `http://localhost:4200/` y usará `http://localhost:8080/` como URL de la API. Para detenerla:
+La aplicación estará disponible en `http://localhost:4200/` y consumirá la API en `http://localhost:8080/`. Para detener el frontend:
 
 ```bash
 docker compose -f docker-compose.local.yml down
 ```
 
-El navegador realiza la llamada a la API, por lo que `localhost:8080` apunta al equipo local. Asegúrate de que el backend permita solicitudes CORS desde `http://localhost:4200`.
+El navegador realiza la llamada directamente a la API; por eso `localhost:8080` es el puerto publicado por el backend en tu equipo.
 
 ## Compilación
 

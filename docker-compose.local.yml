@@ -1,14 +1,8 @@
-{
-  "name": "holidays-tracker-front-local",
-  "services": {
-    "frontend": {
-      "build": {
-        "context": ".",
-        "args": {
-          "BUILD_CONFIGURATION": "local"
-        }
-      },
-      "ports": ["4200:80"]
-    }
-  }
-}
+services:
+  frontend:
+    build:
+      context: .
+      args:
+        BUILD_CONFIGURATION: local
+    ports:
+      - "4200:80"
