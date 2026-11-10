@@ -1,3 +1,18 @@
+/** Convenio / tipo de vacaciones admitido para un usuario. */
+export enum VacationType {
+  Habiles = 'habiles',
+  Inhabiles = 'inhabiles',
+}
+
+export const VACATION_TYPE_OPTIONS: ReadonlyArray<{ value: VacationType; label: string }> = [
+  { value: VacationType.Habiles, label: 'Horas libre configuración' },
+  { value: VacationType.Inhabiles, label: 'Días inhábiles' },
+];
+
+export function getVacationTypeLabel(value: string): string {
+  return VACATION_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
+}
+
 export interface UserFormPayload {
   nombre: string;
   apellidos: string;
@@ -10,6 +25,7 @@ export interface AdminUser extends UserFormPayload {
   id: number;
   sesionActiva?: boolean;
   solicitudPendiente?: boolean;
+  estadoSesion?: 'proceso' | 'solicitado' | 'autorizado' | string;
 }
 
 export function createEmptyUserForm(): UserFormPayload {
@@ -47,12 +63,18 @@ export function normalizeUser(value: unknown): AdminUser | null {
     rawSession === null
   );
 
-  const solicitudPendiente = Boolean(
-    item['solicitudPendiente'] ??
-      item['solicitud_pendiente'] ??
-      item['sessionRequested'] ??
-      item['session_requested']
-  );
+  const rawEstadoSesion = String(
+    item['estado_sesion'] ?? item['estadoSesion'] ?? item['estado'] ?? ''
+  ).toLowerCase().trim();
+
+  const solicitudPendiente =
+    rawEstadoSesion === 'solicitado' ||
+    Boolean(
+      item['solicitudPendiente'] ??
+        item['solicitud_pendiente'] ??
+        item['sessionRequested'] ??
+        item['session_requested']
+    );
 
   return {
     id,
@@ -63,19 +85,24 @@ export function normalizeUser(value: unknown): AdminUser | null {
     tipo_vacaciones: String(item['tipo_vacaciones'] ?? '').trim(),
     sesionActiva,
     solicitudPendiente,
+    estadoSesion: rawEstadoSesion || (solicitudPendiente ? 'solicitado' : (!sesionActiva ? 'proceso' : 'autorizado')),
   };
 }
 
 export function isUserPending(user: AdminUser): boolean {
-  return user.sesionActiva === false;
+  return user.sesionActiva === false || user.estadoSesion === 'proceso';
 }
 
 export function hasActiveSession(user: AdminUser): boolean {
-  return !isUserPending(user);
+  return !isUserPending(user) && !isUserRequested(user);
 }
 
 export function hasSessionRequest(user: AdminUser): boolean {
-  return Boolean(user.solicitudPendiente);
+  return isUserRequested(user);
+}
+
+export function isUserRequested(user: AdminUser): boolean {
+  return user.estadoSesion === 'solicitado' || Boolean(user.solicitudPendiente);
 }
 
 export function getUserDisplayName(user: AdminUser): string {

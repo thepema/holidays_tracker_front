@@ -1,7 +1,7 @@
 <aside class="team-panel">
   <header class="team-header">
     <div>
-      <p class="eyebrow">DIRECTORIO DEL EQUIPO</p>
+      <p class="eyebrow">GESTIÓN DE USUARIOS</p>
       <h2>
         <span>Personas</span>
         <span class="count-pill">{{ users().length }}</span>
@@ -22,11 +22,13 @@
     <button
       type="button"
       class="btn-bulk-invite"
-      [disabled]="pendingCount() === 0"
+      [disabled]="users().length === 0"
       (click)="bulkInviteClick.emit()"
     >
       <span class="invite-label">↗ Invitar usuarios sin sesión activa</span>
-      <span class="invite-badge">{{ pendingCount() }}</span>
+      @if (pendingCount() > 0) {
+        <span class="invite-badge" title="Usuarios con invitación en proceso">{{ pendingCount() }}</span>
+      }
     </button>
 
     @if (users().length > 0) {
@@ -37,7 +39,7 @@
           [ngModel]="searchTerm()"
           (ngModelChange)="searchTerm.set($event)"
           placeholder="Buscar por nombre, cargo o email…"
-          aria-label="Buscar miembro del equipo"
+          aria-label="Buscar usuario"
         />
         <div class="selection-bar">
           <span class="selection-text">Filtro de calendario:</span>
@@ -78,10 +80,16 @@
           <span class="user-email">{{ user.email }}</span>
           <div class="user-meta">
             <span class="vacation-pill">{{ yearCount(user.id) }} días este año</span>
-            <span class="session-status" [class.is-pending]="isPending(user)">
-              <i class="status-dot"></i>
-              {{ isPending(user) ? 'Sin sesión' : 'Sesión activa' }}
-            </span>
+            @if (isPending(user)) {
+              <span class="session-status is-pending">
+                <i class="status-dot"></i>
+                Pendiente de activar
+              </span>
+            } @else if (user.tipo_vacaciones) {
+              <span class="session-status">
+                {{ vacationTypeLabel(user.tipo_vacaciones) }}
+              </span>
+            }
           </div>
         </div>
 
@@ -104,7 +112,7 @@
               type="button"
               (click)="triggerAction(actionMenu, () => resendInvite.emit(user))"
             >
-              ↗ Reenviar invitación
+              ↗ Enviar invitación
             </button>
             <hr class="menu-divider" />
             <button
@@ -122,7 +130,7 @@
         <span class="empty-icon">✦</span>
         @if (users().length === 0) {
           <strong>Aún no hay usuarios registrados</strong>
-          <p>Da de alta a la primera persona de tu organización para comenzar la planificación.</p>
+          <p>Da de alta al primer usuario para comenzar la planificación.</p>
           <button class="btn-outline" type="button" (click)="createClick.emit()">
             ＋ Crear primer usuario
           </button>
@@ -133,10 +141,4 @@
       </div>
     }
   </div>
-
-  <footer class="team-footer">
-    <button class="btn-add-full" type="button" (click)="createClick.emit()">
-      ＋ Añadir nueva persona al equipo
-    </button>
-  </footer>
 </aside>

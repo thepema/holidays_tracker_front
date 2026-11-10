@@ -1,7 +1,7 @@
 <div class="admin-shell">
   <app-admin-header
     [activeView]="activeView()"
-    [requestCount]="state.requestUsers().length"
+    [requestCount]="state.totalPendingAndRequestedCount()"
     [loading]="state.loading()"
     (viewChange)="activeView.set($event)"
     (refreshData)="state.loadDashboard()"
@@ -17,15 +17,15 @@
         <h1>
           {{
             activeView() === 'dashboard'
-              ? 'Resumen operativo del equipo'
-              : 'Solicitudes de sesión'
+              ? 'Resumen de vacaciones'
+              : 'Solicitudes pendientes'
           }}
         </h1>
         <p class="subtitle">
           {{
             activeView() === 'dashboard'
-              ? 'Supervisa la planificación vacacional, gestiona altas y administra el acceso de tu organización.'
-              : 'Atiende las peticiones de recuperación de acceso enviadas por los miembros del equipo.'
+              ? 'Supervisa la planificación vacacional, gestiona altas y administra los accesos.'
+              : 'Usuarios que no tienen su sesión activada o han solicitado acceso.'
           }}
         </p>
       </div>
@@ -40,37 +40,6 @@
       (dismissNotice)="notifications.clearNotice()"
       (dismissError)="notifications.clearError()"
     />
-
-    <section class="stats-grid" aria-label="Indicadores clave del equipo">
-      <app-stat-card
-        label="Personas en el equipo"
-        [value]="state.users().length"
-        note="registrados"
-        icon="◈"
-        accent="indigo"
-      />
-      <app-stat-card
-        label="Sesiones activas"
-        [value]="state.activeSessionCount()"
-        [note]="'de ' + state.users().length + ' totales'"
-        icon="✓"
-        accent="emerald"
-      />
-      <app-stat-card
-        label="Días registrados este año"
-        [value]="state.vacationCountYear()"
-        note="días acumulados"
-        icon="☼"
-        accent="amber"
-      />
-      <app-stat-card
-        label="Pendientes de activación"
-        [value]="state.pendingUsers().length"
-        note="sin sesión"
-        icon="↗"
-        accent="slate"
-      />
-    </section>
 
     @if (activeView() === 'dashboard') {
       <div class="dashboard-layout">
@@ -98,8 +67,11 @@
       </div>
     } @else {
       <app-session-requests
-        [requestUsers]="state.requestUsers()"
+        [pendingUsers]="state.pendingUsers()"
+        [requestedUsers]="state.requestedUsers()"
         (resendInvite)="state.resendInvitation($event)"
+        (bulkInviteClick)="openConfirmBulkModal()"
+        (sendAllRequestedClick)="handleSendAllRequested()"
       />
     }
 
@@ -112,7 +84,7 @@
 
     <footer class="workspace-footer">
       <span class="footer-brand">HOLIDAYS TRACKER · CONSOLA DE ADMINISTRACIÓN</span>
-      <span>Un equipo que descansa, rinde mejor.</span>
+      <span>Gestión de vacaciones</span>
     </footer>
   </main>
 </div>

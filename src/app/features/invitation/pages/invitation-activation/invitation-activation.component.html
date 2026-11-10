@@ -1,0 +1,162 @@
+<main class="invitation-page">
+  <div class="activation-card">
+
+    <!-- Marca / Cabecera -->
+    <header class="card-brand">
+      <div class="brand-logo">
+        <span class="brand-mark">h</span>
+        <span class="brand-text">holidays<span class="brand-light"> tracker</span></span>
+      </div>
+      <span class="badge-role">Acceso de usuario</span>
+    </header>
+
+    <!-- ESTADO 1: CARGANDO -->
+    @if (state() === 'cargando') {
+      <div class="state-container loading-state" role="status" aria-live="polite">
+        <div class="spinner-wrapper">
+          <div class="spinner"></div>
+        </div>
+        <h1 class="state-title">Activando tu acceso…</h1>
+        <p class="state-description">
+          Estamos verificando tu código de invitación y configurando tu sesión.
+          Por favor, no cierres esta ventana.
+        </p>
+      </div>
+    }
+
+    <!-- ESTADO 2: ÉXITO -->
+    @if (state() === 'exito') {
+      <div class="state-container success-state">
+        <div class="status-icon-circle success-circle" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20 6 9 17 4 12"></polyline>
+          </svg>
+        </div>
+
+        <h1 class="state-title">¡Sesión activada con éxito!</h1>
+        <p class="state-description">
+          Hola <strong>{{ userDisplayName() }}</strong>, tu cuenta ha sido vinculada correctamente a este navegador.
+        </p>
+
+        <!-- Bloque del código de recuperación -->
+        <section class="recovery-section">
+          <div class="recovery-header">
+            <span class="recovery-label">Tu código de recuperación personal</span>
+            <span class="badge-vital">Vital</span>
+          </div>
+
+          <div class="recovery-code-box">
+            <code class="recovery-code">{{ recoveryCode() }}</code>
+          </div>
+
+          <div class="recovery-actions">
+            <button
+              type="button"
+              class="btn-action"
+              (click)="copyRecoveryCode()"
+              [class.copied]="copied()"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                @if (copied()) {
+                  <polyline points="20 6 9 17 4 12"></polyline>
+                } @else {
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                }
+              </svg>
+              <span>{{ copied() ? '¡Copiado!' : 'Copiar código' }}</span>
+            </button>
+
+            <button
+              type="button"
+              class="btn-action"
+              (click)="downloadRecoveryCode()"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>Descargar (.txt)</span>
+            </button>
+          </div>
+        </section>
+
+        <!-- Advertencia destacada -->
+        <div class="warning-banner" role="alert">
+          <div class="warning-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </div>
+          <div class="warning-content">
+            <h2 class="warning-title">Guarda este código en un lugar seguro</h2>
+            <p class="warning-text">
+              Tu sesión ha quedado guardada en este navegador y <strong>no caducará</strong>.
+              Sin embargo, <strong>debes conservar este código</strong> para poder iniciar sesión desde otro navegador o resetear tu acceso si alguna vez borras o pierdes la cookie de navegación.
+            </p>
+          </div>
+        </div>
+
+        <!-- Confirmación y botón de continuar -->
+        <div class="confirmation-section">
+          <label class="confirm-checkbox">
+            <input
+              type="checkbox"
+              [checked]="codeConfirmed()"
+              (change)="toggleConfirmed()"
+            />
+            <span>He copiado y guardado mi código de recuperación en un lugar seguro.</span>
+          </label>
+
+          <button
+            type="button"
+            class="btn-primary continue-btn"
+            [disabled]="!codeConfirmed()"
+            (click)="continueToApp()"
+          >
+            <span>Entrar a Holidays Tracker</span>
+            <span aria-hidden="true">→</span>
+          </button>
+        </div>
+      </div>
+    }
+
+    <!-- ESTADO 3: ERROR -->
+    @if (state() === 'error') {
+      <div class="state-container error-state" role="alert">
+        <div class="status-icon-circle error-circle" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <line x1="15" y1="9" x2="9" y2="15"></line>
+            <line x1="9" y1="9" x2="15" y2="15"></line>
+          </svg>
+        </div>
+
+        <h1 class="state-title">No se pudo activar la invitación</h1>
+        <p class="state-description">{{ errorMessage() }}</p>
+
+        <div class="info-help-box">
+          <p>
+            El enlace de invitación puede haber caducado, haber sido utilizado ya o contener caracteres incompletos.
+          </p>
+          <p class="help-action">
+            Pide a tu administrador que te reenvíe una nueva invitación desde el panel de control.
+          </p>
+        </div>
+
+        <div class="error-actions">
+          <button type="button" class="btn-action" (click)="retry()">
+            Reintentar
+          </button>
+          <a routerLink="/administracion" class="btn-primary link-btn">
+            Ir a inicio
+          </a>
+        </div>
+      </div>
+    }
+
+  </div>
+</main>

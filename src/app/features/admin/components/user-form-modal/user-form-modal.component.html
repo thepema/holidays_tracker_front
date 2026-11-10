@@ -1,10 +1,10 @@
 <app-modal-shell
-  [eyebrow]="mode() === 'create' ? 'NUEVO MIEMBRO DEL EQUIPO' : 'EDICIÓN DE PERFIL'"
+  [eyebrow]="mode() === 'create' ? 'NUEVO USUARIO' : 'EDICIÓN DE PERFIL'"
   [title]="mode() === 'create' ? 'Añadir persona' : 'Editar usuario'"
   [subtitle]="
     mode() === 'create'
-      ? 'Completa los datos profesionales para darle de alta y enviarle una invitación.'
-      : 'Actualiza la información corporativa de esta persona.'
+      ? 'Completa los datos para darle de alta y enviarle una invitación.'
+      : 'Actualiza la información de esta persona.'
   "
   (closeModal)="cancel.emit()"
 >
@@ -56,18 +56,22 @@
 
     <label class="field full-row">
       <span>Convenio / Tipo de vacaciones</span>
-      <input
+      <select
         name="tipo_vacaciones"
         [ngModel]="form().tipo_vacaciones"
         (ngModelChange)="updateField('tipo_vacaciones', $event)"
-        placeholder="Ej. 22 días laborables / Estándar"
         required
-      />
+      >
+        <option value="" disabled>Selecciona un convenio</option>
+        @for (option of vacationTypeOptions; track option.value) {
+          <option [value]="option.value">{{ option.label }}</option>
+        }
+      </select>
     </label>
 
     <div class="form-actions full-row">
       <button type="button" class="btn-secondary" (click)="cancel.emit()">Cancelar</button>
-      <button type="submit" class="btn-primary" [disabled]="saving()">
+      <button type="submit" class="btn-primary" [disabled]="saving() || !isVacationTypeValid()">
         {{
           saving()
             ? 'Guardando…'

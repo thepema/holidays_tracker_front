@@ -11,7 +11,6 @@ import { AdminUser, UserFormPayload } from '../../../../core/models/user.model';
 import { AdminStateService } from '../../../../core/services/admin-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
-import { StatCardComponent } from '../../../../shared/components/stat-card/stat-card.component';
 import {
   AdminHeaderComponent,
   AdminViewTab,
@@ -33,7 +32,6 @@ type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | '';
   standalone: true,
   imports: [
     AdminHeaderComponent,
-    StatCardComponent,
     AlertBannerComponent,
     VacationCalendarComponent,
     TeamPanelComponent,
@@ -113,5 +111,12 @@ export class AdminDashboardComponent implements OnInit {
 
   protected handleConfirmBulkInvite(): void {
     this.state.sendBulkInvitations(() => this.closeModal());
+  }
+
+  protected handleSendAllRequested(): void {
+    const count = this.state.requestedUsers().length;
+    if (confirm(`¿Quieres enviar invitación individual a los ${count} usuarios con reseteo solicitado?`)) {
+      this.state.sendRequestedInvitations();
+    }
   }
 }

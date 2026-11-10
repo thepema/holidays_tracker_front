@@ -1,1 +1,6 @@
-export { ApiService, type AdminUser, type UserFormPayload } from './core/services/api.service';
+export {
+  ApiService,
+  type AdminUser,
+  type UserFormPayload,
+  type SessionActivationResponse,
+} from './core/services/api.service';

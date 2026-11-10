@@ -1,50 +1,143 @@
-<section class="requests-panel">
-  <header class="panel-header">
-    <div>
-      <p class="eyebrow">RECUPERACIÓN Y ACCESO A CUENTAS</p>
-      <h2>Solicitudes de sesión pendientes</h2>
-      <p class="subtitle">
-        Reenvía un enlace de invitación a los miembros del equipo que han solicitado restablecer su
-        sesión.
-      </p>
+<div class="requests-view">
+  <div class="kpi-grid">
+    <div class="kpi-card-wrapper">
+      <app-stat-card
+        label="Reseteo de sesión solicitado"
+        [value]="requestedUsers().length"
+        note="estado solicitado"
+        icon="↻"
+        accent="amber"
+      />
     </div>
-    <span class="total-badge">{{ requestUsers().length }} pendientes</span>
-  </header>
+    <div class="kpi-card-wrapper">
+      <app-stat-card
+        label="Pendientes de activación"
+        [value]="pendingUsers().length"
+        note="invitación en proceso"
+        icon="↗"
+        accent="indigo"
+      />
+    </div>
+  </div>
 
-  @if (requestUsers().length > 0) {
-    <div class="request-list">
-      @for (user of requestUsers(); track user.id) {
-        <article class="request-row">
-          <div class="user-avatar">{{ initials(user) }}</div>
-          <div class="user-details">
-            <div class="name-line">
-              <strong>{{ displayName(user) }}</strong>
-              @if (user.cargo) {
-                <span class="role-chip">{{ user.cargo }}</span>
-              }
-            </div>
-            <span class="email-text">{{ user.email }}</span>
-          </div>
-          <span class="status-pill">Solicitud pendiente</span>
-          <button
-            class="btn-resend"
-            type="button"
-            (click)="resendInvite.emit(user)"
-          >
-            <span>Reenviar invitación</span>
-            <span aria-hidden="true">↗</span>
-          </button>
-        </article>
+  <!-- SECCIÓN 1: USUARIOS CON RESETEO DE SESIÓN SOLICITADO -->
+  <section class="requests-panel">
+    <header class="panel-header">
+      <div>
+        <p class="eyebrow">RESETEO DE ACCESO</p>
+        <h2>Usuarios con reseteo de sesión solicitado</h2>
+      </div>
+
+      @if (requestedUsers().length > 0) {
+        <button
+          type="button"
+          class="btn-send-all"
+          (click)="sendAllRequestedClick.emit()"
+        >
+          <span>↻ Enviar invitación a todos los solicitados ({{ requestedUsers().length }})</span>
+        </button>
       }
-    </div>
-  } @else {
-    <div class="empty-requests">
-      <div class="empty-badge">✓</div>
-      <strong>Todo al día: no hay solicitudes pendientes</strong>
-      <p>
-        Cuando un empleado solicite recuperar el acceso a su sesión desde la aplicación, aparecerá
-        en esta bandeja para su aprobación.
-      </p>
-    </div>
-  }
-</section>
+    </header>
+
+    @if (requestedUsers().length > 0) {
+      <div class="request-list">
+        @for (user of requestedUsers(); track user.id) {
+          <article class="request-row is-requested">
+            <div class="user-avatar avatar-requested">{{ initials(user) }}</div>
+            <div class="user-details">
+              <div class="name-line">
+                <strong>{{ displayName(user) }}</strong>
+                @if (user.cargo) {
+                  <span class="role-chip">{{ user.cargo }}</span>
+                }
+                @if (user.tipo_vacaciones) {
+                  <span class="role-chip">{{ vacationTypeLabel(user.tipo_vacaciones) }}</span>
+                }
+              </div>
+              <span class="email-text">{{ user.email }}</span>
+            </div>
+            <span class="status-pill pill-requested">Reseteo solicitado</span>
+            <button
+              class="btn-resend"
+              type="button"
+              (click)="resendInvite.emit(user)"
+              title="Enviar invitación individual a este usuario"
+            >
+              <span>Enviar invitación</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="empty-requests">
+        <div class="empty-badge">✓</div>
+        <strong>No hay solicitudes de reseteo de sesión</strong>
+        <p>
+          Cuando un usuario solicite un nuevo acceso o se revoque su sesión, aparecerá en esta lista para emitirle una nueva invitación.
+        </p>
+      </div>
+    }
+  </section>
+
+  <!-- SECCIÓN 2: USUARIOS CON INVITACIÓN EN PROCESO -->
+  <section class="requests-panel">
+    <header class="panel-header">
+      <div>
+        <p class="eyebrow">INVITACIONES EN CURSO</p>
+        <h2>Usuarios con invitación pendiente de activar</h2>
+        <p class="subtitle">
+          Usuarios a los que ya se les ha enviado invitación (estado «proceso») y aún no han completado la activación con su código.
+        </p>
+      </div>
+
+      <button
+        type="button"
+        class="btn-bulk-invite"
+        (click)="bulkInviteClick.emit()"
+      >
+        <span>↗ Invitar usuarios sin sesión activa</span>
+      </button>
+    </header>
+
+    @if (pendingUsers().length > 0) {
+      <div class="request-list">
+        @for (user of pendingUsers(); track user.id) {
+          <article class="request-row">
+            <div class="user-avatar">{{ initials(user) }}</div>
+            <div class="user-details">
+              <div class="name-line">
+                <strong>{{ displayName(user) }}</strong>
+                @if (user.cargo) {
+                  <span class="role-chip">{{ user.cargo }}</span>
+                }
+                @if (user.tipo_vacaciones) {
+                  <span class="role-chip">{{ vacationTypeLabel(user.tipo_vacaciones) }}</span>
+                }
+              </div>
+              <span class="email-text">{{ user.email }}</span>
+            </div>
+            <span class="status-pill">En proceso</span>
+            <button
+              class="btn-resend"
+              type="button"
+              (click)="resendInvite.emit(user)"
+              title="Reenviar invitación individual a este usuario"
+            >
+              <span>Reenviar invitación</span>
+              <span aria-hidden="true">↗</span>
+            </button>
+          </article>
+        }
+      </div>
+    } @else {
+      <div class="empty-requests">
+        <div class="empty-badge">✓</div>
+        <strong>No hay invitaciones en proceso</strong>
+        <p>
+          Ningún usuario tiene una invitación pendiente de completar en este momento.
+        </p>
+      </div>
+    }
+  </section>
+</div>

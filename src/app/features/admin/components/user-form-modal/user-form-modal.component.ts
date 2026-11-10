@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   OnInit,
+  computed,
   input,
   output,
   signal,
@@ -10,6 +11,7 @@ import { FormsModule } from '@angular/forms';
 import {
   AdminUser,
   UserFormPayload,
+  VACATION_TYPE_OPTIONS,
   createEmptyUserForm,
 } from '../../../../core/models/user.model';
 import { ModalShellComponent } from '../../../../shared/components/modal-shell/modal-shell.component';
@@ -31,6 +33,11 @@ export class UserFormModalComponent implements OnInit {
   readonly cancel = output<void>();
 
   protected readonly form = signal<UserFormPayload>(createEmptyUserForm());
+  protected readonly vacationTypeOptions = VACATION_TYPE_OPTIONS;
+
+  protected readonly isVacationTypeValid = computed<boolean>(() =>
+    VACATION_TYPE_OPTIONS.some((option) => option.value === this.form().tipo_vacaciones)
+  );
 
   ngOnInit(): void {
     const user = this.initialUser();
@@ -52,7 +59,7 @@ export class UserFormModalComponent implements OnInit {
   }
 
   protected submitForm(): void {
-    if (this.saving()) {
+    if (this.saving() || !this.isVacationTypeValid()) {
       return;
     }
     this.save.emit(this.form());

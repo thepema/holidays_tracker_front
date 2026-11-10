@@ -1,12 +1,53 @@
 :root {
-  --surface-bg: #f4f7f4;
-  --surface-card: #ffffff;
-  --border-subtle: #e4eae2;
-  --brand-primary: #355c44;
-  --brand-primary-hover: #284834;
-  --text-primary: #1b2c21;
-  --text-muted: #657368;
-  --text-subtle: #849087;
+  /* Fondos generales (subtonos de blanco cálido) y superficie base de cards (#E3E2DA) */
+  --bg-app: #faf9f5;
+  --bg-surface-subtle: #f2f1ec;
+  --bg-card: #e3e2da;
+  --bg-card-elevated: #ebeae3;
+  --bg-input: #faf9f5;
+  --bg-input-focus: #ffffff;
+  --bg-glass: rgba(250, 249, 245, 0.92);
+  --bg-backdrop: rgba(8, 32, 44, 0.58);
+
+  /* Paleta de resaltes principal (#0E3345) y escala de tonos más oscuros y claros */
+  --accent-darkest: #05151e;
+  --accent-darker: #08202c;
+  --accent-primary: #0e3345;
+  --accent-dark: #164860;
+  --accent-medium: #236482;
+  --accent-light: #4a89a6;
+  --accent-soft: #cfe0e8;
+  --accent-subtle: #e2ecf0;
+  --accent-focus-ring: rgba(14, 51, 69, 0.18);
+
+  /* Tipografía armonizada con #0E3345 */
+  --text-primary: #08202c;
+  --text-secondary: #264352;
+  --text-muted: #4f6773;
+  --text-subtle: #6d828d;
+  --text-on-accent: #faf9f5;
+
+  /* Bordes y divisores */
+  --border-subtle: #cfceC4;
+  --border-strong: #bab8ac;
+  --border-accent: #7da3b8;
+
+  /* Sombras */
+  --shadow-card: 0 4px 16px rgba(14, 51, 69, 0.06);
+  --shadow-card-hover: 0 10px 26px rgba(14, 51, 69, 0.12);
+  --shadow-dropdown: 0 12px 28px rgba(8, 32, 44, 0.16);
+  --shadow-modal: 0 24px 64px rgba(5, 21, 30, 0.28);
+
+  /* Estados semánticos */
+  --status-success: #1b6b50;
+  --status-success-bg: #dceee7;
+  --status-success-border: #b0d8c9;
+  --status-warning: #9a5b13;
+  --status-warning-bg: #f7e8d4;
+  --status-warning-border: #e6c89e;
+  --status-danger: #9e2a2b;
+  --status-danger-bg: #f9e3e3;
+  --status-danger-border: #e8b7b7;
 }
 
 *,
@@ -25,7 +66,7 @@ html {
 
 body {
   margin: 0;
-  background: var(--surface-bg);
+  background: var(--bg-app);
   color: var(--text-primary);
 }
 

@@ -15,27 +15,33 @@
 }
 
 .field span {
-  color: #2f3f34;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
 }
 
-.field input {
+.field input,
+.field select {
   width: 100%;
   padding: 11px 13px;
-  border: 1px solid #d8e1d7;
+  border: 1px solid var(--border-strong);
   border-radius: 9px;
-  background: #fbfcfb;
-  color: #1c2c21;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 13px;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
-.field input:focus {
-  background: #ffffff;
-  border-color: #3f694e;
-  box-shadow: 0 0 0 3px rgba(53, 92, 68, 0.12);
+.field select {
+  cursor: pointer;
+}
+
+.field input:focus,
+.field select:focus {
+  background: var(--bg-input-focus);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-focus-ring);
 }
 
 .form-actions {
@@ -54,25 +60,27 @@
   font-weight: 600;
   cursor: pointer;
   border: 0;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .btn-secondary {
-  background: #eff3ee;
-  color: #425346;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .btn-secondary:hover {
-  background: #e3eae2;
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
 }
 
 .btn-primary {
-  background: #355c44;
-  color: #ffffff;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #284834;
+  background: var(--accent-darker);
 }
 
 .btn-primary:disabled {

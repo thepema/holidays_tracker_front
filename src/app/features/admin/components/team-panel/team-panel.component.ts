@@ -11,6 +11,7 @@ import {
   AdminUser,
   getUserDisplayName,
   getUserInitials,
+  getVacationTypeLabel,
   isUserPending,
 } from '../../../../core/models/user.model';
 
@@ -79,6 +80,10 @@ export class TeamPanelComponent {
 
   protected yearCount(userId: number): number {
     return this.userYearCounts().get(userId) ?? 0;
+  }
+
+  protected vacationTypeLabel(value: string): string {
+    return getVacationTypeLabel(value);
   }
 
   protected onCheckboxChange(userId: number, event: Event): void {

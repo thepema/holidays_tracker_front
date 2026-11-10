@@ -9,8 +9,8 @@
   width: 48px;
   height: 48px;
   border-radius: 14px;
-  background: #eaf3ed;
-  color: #355c44;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
   font-size: 22px;
   font-weight: 700;
   display: grid;
@@ -19,13 +19,13 @@
 
 .confirm-text {
   margin: 0;
-  color: #4f5e53;
+  color: var(--text-secondary);
   font-size: 14px;
   line-height: 1.6;
 }
 
 .confirm-text strong {
-  color: #1c2c21;
+  color: var(--text-primary);
 }
 
 .confirm-actions {
@@ -47,13 +47,18 @@
 }
 
 .btn-secondary {
-  background: #eff3ee;
-  color: #425346;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .btn-primary {
-  background: #355c44;
-  color: #ffffff;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-darker);
 }
 
 .btn-primary:disabled {

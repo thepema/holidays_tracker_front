@@ -1,44 +1,4 @@
 <main class="login-page">
-  <aside class="login-showcase" aria-hidden="true">
-    <div class="showcase-bg">
-      <div class="orb orb-warm"></div>
-      <div class="orb orb-sage"></div>
-    </div>
-
-    <div class="showcase-top">
-      <span class="showcase-badge">PORTAL CORPORATIVO RR.HH.</span>
-    </div>
-
-    <div class="showcase-center">
-      <h2>Planificación inteligente de ausencias y descansos.</h2>
-      <p>
-        Visualiza la disponibilidad de tu equipo en tiempo real, gestiona accesos y coordina los
-        periodos vacacionales desde una única consola centralizada.
-      </p>
-
-      <div class="feature-pills">
-        <div class="feature-pill">
-          <span class="pill-icon">◈</span>
-          <div>
-            <strong>Calendario de ocupación</strong>
-            <span>Control diario de ausencias por departamento</span>
-          </div>
-        </div>
-        <div class="feature-pill">
-          <span class="pill-icon">✓</span>
-          <div>
-            <strong>Gestión de sesiones e invitaciones</strong>
-            <span>Control de acceso seguro para todo el equipo</span>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="showcase-footer">
-      <span>HOLIDAYS TRACKER ENTERPRISE</span>
-      <span>TIEMPO PARA TI · RENDIMIENTO SOSTENIBLE</span>
-    </div>
-  </aside>
 
   <section class="login-panel">
     <div class="login-card">
@@ -48,17 +8,14 @@
       </div>
 
       <div class="login-copy">
-        <p class="eyebrow">PANEL DE ADMINISTRACIÓN</p>
-        <h1>Las vacaciones,<br />mejor organizadas.</h1>
-        <p class="subtitle">
-          Inicia sesión con tus credenciales de administrador para gestionar tu equipo y sus días de
-          descanso.
-        </p>
+        <p class="eyebrow">ADMINISTRACIÓN</p>
+        <h1>Iniciar sesión</h1>
+        <p class="subtitle">Introduce la contraseña para acceder al panel.</p>
       </div>
 
       <form class="login-form" (ngSubmit)="submitLogin()">
         <div class="field-group">
-          <label for="admin-password">Contraseña de administrador</label>
+          <label for="admin-password">Contraseña</label>
           <div class="password-wrapper">
             <input
               id="admin-password"
@@ -66,7 +23,7 @@
               [type]="showPassword() ? 'text' : 'password'"
               [ngModel]="password()"
               (ngModelChange)="password.set($event)"
-              placeholder="Introduce tu contraseña de acceso"
+              placeholder="Contraseña de administrador"
               autocomplete="current-password"
               required
             />
@@ -93,14 +50,14 @@
           type="submit"
           [disabled]="auth.loading() || !password().trim()"
         >
-          <span>{{ auth.loading() ? 'Verificando acceso…' : 'Entrar al panel' }}</span>
+          <span>{{ auth.loading() ? 'Entrando…' : 'Entrar' }}</span>
           <span aria-hidden="true">→</span>
         </button>
       </form>
 
       <footer class="login-foot">
         <span class="security-dot"></span>
-        <span>Acceso exclusivo y auditado para administración</span>
+        <span>Acceso exclusivo de administración</span>
       </footer>
     </div>
   </section>

@@ -6,6 +6,19 @@ import { AdminUser, UserFormPayload } from '../models/user.model';
 
 export type { AdminUser, UserFormPayload };
 
+export interface SessionActivationResponse {
+  usuario: {
+    id: number;
+    nombre: string;
+    apellidos: string;
+    email: string;
+    cargo: string;
+    tipo_vacaciones: string;
+  };
+  token: string;
+  codigoRecuperacion: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
@@ -15,8 +28,35 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/api/admin/login`, { password });
   }
 
+  /**
+   * POST /api/sesiones/activar
+   * Activa la sesión con el código de invitación recibido por la URL.
+   * Se incluye withCredentials: true para registrar y guardar la cookie ht_session.
+   */
+  activateSession(codigo: string): Observable<SessionActivationResponse> {
+    return this.http.post<SessionActivationResponse>(
+      `${this.baseUrl}/api/sesiones/activar`,
+      { codigo },
+      { withCredentials: true }
+    );
+  }
+
+  /**
+   * GET /api/usuarios (administrador):
+   * Obtiene todos los usuarios excluyendo los que tienen cargo de administrador
+   * ('Administrador', 'Administradora', 'admin').
+   */
   getUsers(token?: string): Observable<unknown> {
     return this.http.get(`${this.baseUrl}/api/usuarios`, { headers: this.auth(token) });
+  }
+
+  /**
+   * GET /api/usuarios/pendientes (administrador):
+   * Obtiene todos los datos de los usuarios a los que se les ha enviado la invitación
+   * (estado = 'proceso') y aún no han completado la autenticación.
+   */
+  getPendingUsers(token?: string): Observable<unknown> {
+    return this.http.get(`${this.baseUrl}/api/usuarios/pendientes`, { headers: this.auth(token) });
   }
 
   createUser(user: UserFormPayload, token?: string): Observable<unknown> {
@@ -24,12 +64,10 @@ export class ApiService {
   }
 
   updateUser(userId: number, user: Partial<AdminUser>, token?: string): Observable<unknown> {
-    // La operación de edición no aparece todavía en el OpenAPI compartido.
     return this.http.patch(`${this.baseUrl}/api/usuarios/${userId}`, user, { headers: this.auth(token) });
   }
 
   getVacations(token?: string): Observable<unknown> {
-    // Sin parámetros: el administrador recibe las vacaciones de todos los usuarios.
     return this.http.get(`${this.baseUrl}/api/vacaciones`, { headers: this.auth(token) });
   }
 

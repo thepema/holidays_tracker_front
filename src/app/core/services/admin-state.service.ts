@@ -1,15 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { forkJoin } from 'rxjs';
 import {
   AdminUser,
   UserFormPayload,
   getUserDisplayName,
-  hasActiveSession,
-  hasSessionRequest,
-  isUserPending,
+  isUserRequested,
   normalizeUser,
 } from '../models/user.model';
 import { VacationDay, normalizeVacation } from '../models/vacation.model';
-import { extractArray, extractErrorMessage } from '../utils/http-helpers';
+import { asRecord, extractArray, extractErrorMessage } from '../utils/http-helpers';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
 import { NotificationService } from './notification.service';
@@ -20,27 +19,27 @@ export class AdminStateService {
   private readonly auth = inject(AuthService);
   private readonly notifications = inject(NotificationService);
 
-  readonly users = signal<AdminUser[]>([]);
+  private readonly rawUsers = signal<AdminUser[]>([]);
+  readonly pendingUsers = signal<AdminUser[]>([]);
   readonly vacations = signal<VacationDay[]>([]);
   readonly selectedUserIds = signal<number[]>([]);
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
 
-  readonly pendingUsers = computed<AdminUser[]>(() =>
-    this.users().filter((user) => isUserPending(user))
+  readonly requestedUsers = computed<AdminUser[]>(() =>
+    this.rawUsers().filter((user) => isUserRequested(user))
   );
 
-  readonly requestUsers = computed<AdminUser[]>(() =>
-    this.users().filter((user) => hasSessionRequest(user))
+  readonly totalPendingAndRequestedCount = computed<number>(() =>
+    this.pendingUsers().length + this.requestedUsers().length
   );
 
-  readonly activeSessionCount = computed<number>(() =>
-    this.users().filter((user) => hasActiveSession(user)).length
-  );
-
-  readonly vacationCountYear = computed<number>(() => {
-    const yearPrefix = `${new Date().getFullYear()}-`;
-    return this.vacations().filter((item) => item.fecha.startsWith(yearPrefix)).length;
+  readonly users = computed<AdminUser[]>(() => {
+    const pendingSet = new Set(this.pendingUsers().map((u) => u.id));
+    return this.rawUsers().map((user) => ({
+      ...user,
+      sesionActiva: !pendingSet.has(user.id) && user.estadoSesion !== 'solicitado',
+    }));
   });
 
   readonly userCountByYearMap = computed<Map<number, number>>(() => {
@@ -67,7 +66,8 @@ export class AdminStateService {
   });
 
   reset(): void {
-    this.users.set([]);
+    this.rawUsers.set([]);
+    this.pendingUsers.set([]);
     this.vacations.set([]);
     this.selectedUserIds.set([]);
     this.loading.set(false);
@@ -87,11 +87,12 @@ export class AdminStateService {
     let completed = 0;
     const finish = (): void => {
       completed += 1;
-      if (completed === 2) {
+      if (completed === 3) {
         this.loading.set(false);
       }
     };
 
+    // 1. GET /api/usuarios (todos los usuarios excepto rol administrador)
     this.api.getUsers(token).subscribe({
       next: (value) => {
         const parsedUsers = extractArray(value, ['usuarios', 'users', 'data'])
@@ -99,7 +100,7 @@ export class AdminStateService {
           .filter((user): user is AdminUser => user !== null);
 
         const previousSelected = this.selectedUserIds();
-        this.users.set(parsedUsers);
+        this.rawUsers.set(parsedUsers);
 
         if (previousSelected.length === 0) {
           this.selectedUserIds.set(parsedUsers.map((user) => user.id));
@@ -120,6 +121,26 @@ export class AdminStateService {
       },
     });
 
+    // 2. GET /api/usuarios/pendientes (usuarios con invitación enviada en estado 'proceso')
+    this.api.getPendingUsers(token).subscribe({
+      next: (value) => {
+        const parsedPending = extractArray(value, ['usuarios', 'users', 'data'])
+          .map((item) => normalizeUser(item))
+          .filter((user): user is AdminUser => user !== null)
+          .map((user) => ({ ...user, sesionActiva: false }));
+
+        this.pendingUsers.set(parsedPending);
+        finish();
+      },
+      error: (error: unknown) => {
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudieron cargar los usuarios pendientes.')
+        );
+        finish();
+      },
+    });
+
+    // 3. GET /api/vacaciones
     this.api.getVacations(token).subscribe({
       next: (value) => {
         const parsedVacations = extractArray(value, ['vacaciones', 'holidays', 'data'])
@@ -232,12 +253,50 @@ export class AdminStateService {
     });
   }
 
+  sendRequestedInvitations(onSuccess?: () => void): void {
+    const requested = this.requestedUsers();
+    if (!requested.length) {
+      return;
+    }
+
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    const calls$ = requested.map((u) => this.api.inviteUser(u.id, token));
+    forkJoin(calls$).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice(
+          `Invitaciones enviadas a los ${requested.length} usuarios con solicitud de reseteo.`
+        );
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(
+            error,
+            'Hubo un problema al enviar alguna de las invitaciones a los usuarios solicitados.'
+          )
+        );
+        this.loadDashboard();
+      },
+    });
+  }
+
   sendBulkInvitations(onSuccess?: () => void): void {
     this.saving.set(true);
     this.api.sendBulkInvitations(this.auth.token()).subscribe({
-      next: () => {
+      next: (res) => {
         this.saving.set(false);
-        this.notifications.showNotice('Se han enviado las invitaciones pendientes.');
+        const body = asRecord(res);
+        const enviadas = body['enviadas'];
+        this.notifications.showNotice(
+          typeof enviadas === 'number'
+            ? `Se han enviado ${enviadas} invitaciones a usuarios sin sesión activa.`
+            : 'Se han enviado las invitaciones pendientes.'
+        );
         onSuccess?.();
         this.loadDashboard();
       },
@@ -253,12 +312,12 @@ export class AdminStateService {
   resendInvitation(user: AdminUser): void {
     this.api.inviteUser(user.id, this.auth.token()).subscribe({
       next: () => {
-        this.notifications.showNotice(`Invitación reenviada a ${user.email}.`);
+        this.notifications.showNotice(`Invitación enviada a ${user.email}.`);
         this.loadDashboard();
       },
       error: (error: unknown) => {
         this.notifications.showError(
-          extractErrorMessage(error, 'No se pudo reenviar la invitación.')
+          extractErrorMessage(error, 'No se pudo enviar la invitación.')
         );
       },
     });

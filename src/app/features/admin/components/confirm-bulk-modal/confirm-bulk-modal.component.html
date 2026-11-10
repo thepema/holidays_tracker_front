@@ -7,11 +7,8 @@
   <div class="confirm-body">
     <div class="confirm-icon" aria-hidden="true">↗</div>
     <p class="confirm-text">
-      Se enviará un correo de invitación a
-      <strong>
-        {{ pendingCount() }} {{ pendingCount() === 1 ? 'persona' : 'personas' }}
-      </strong>
-      que todavía no tienen una sesión activa en la plataforma.
+      Se enviará un correo de invitación a todos los usuarios registrados que todavía no tengan una
+      sesión autorizada activa.
     </p>
     <div class="confirm-actions">
       <button type="button" class="btn-secondary" (click)="cancel.emit()">Ahora no</button>

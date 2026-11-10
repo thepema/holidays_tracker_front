@@ -12,19 +12,19 @@
   font-size: 13px;
   font-weight: 500;
   border: 1px solid transparent;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  box-shadow: var(--shadow-card);
 }
 
 .alert-success {
-  color: #1f5435;
-  background: #ebf7ef;
-  border-color: #c5e6d0;
+  color: var(--status-success);
+  background: var(--status-success-bg);
+  border-color: var(--status-success-border);
 }
 
 .alert-error {
-  color: #8c2620;
-  background: #fdf0ef;
-  border-color: #f3c8c5;
+  color: var(--status-danger);
+  background: var(--status-danger-bg);
+  border-color: var(--status-danger-border);
 }
 
 .alert-badge {
@@ -39,13 +39,13 @@
 }
 
 .alert-success .alert-badge {
-  background: #2b7047;
-  color: #ffffff;
+  background: var(--status-success);
+  color: var(--text-on-accent);
 }
 
 .alert-error .alert-badge {
-  background: #b9382f;
-  color: #ffffff;
+  background: var(--status-danger);
+  color: var(--text-on-accent);
 }
 
 .alert-text {
@@ -60,11 +60,11 @@
   line-height: 1;
   padding: 2px 6px;
   border-radius: 6px;
-  opacity: 0.7;
+  opacity: 0.75;
   cursor: pointer;
 }
 
 .alert-close:hover {
   opacity: 1;
-  background: rgba(0, 0, 0, 0.05);
+  background: rgba(8, 32, 44, 0.08);
 }

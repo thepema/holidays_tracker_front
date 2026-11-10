@@ -6,14 +6,14 @@
 .quick-picker {
   padding: 12px 14px;
   border-radius: 10px;
-  background: #f4f8f5;
-  border: 1px solid #e1eae2;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
 }
 
 .quick-picker label {
   display: block;
   margin-bottom: 7px;
-  color: #344a3b;
+  color: var(--text-primary);
   font-size: 12px;
   font-weight: 600;
 }
@@ -26,26 +26,27 @@
 .picker-row input {
   flex: 1;
   padding: 8px 11px;
-  border: 1px solid #d5dfd5;
+  border: 1px solid var(--border-strong);
   border-radius: 8px;
-  background: #ffffff;
-  color: #1c2c21;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 13px;
 }
 
 .btn-append {
   padding: 8px 13px;
-  border: 1px solid #c5d6c8;
+  border: 1px solid var(--accent-primary);
   border-radius: 8px;
-  background: #ffffff;
-  color: #2f593e;
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
 }
 
 .btn-append:hover:not(:disabled) {
-  background: #eaf3ec;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
 }
 
 .btn-append:disabled {
@@ -64,24 +65,25 @@
   justify-content: space-between;
   font-size: 12px;
   font-weight: 600;
-  color: #2f3f34;
+  color: var(--text-primary);
 }
 
 .dates-counter {
   padding: 2px 8px;
   border-radius: 999px;
-  background: #eaf2ec;
-  color: #2f593e;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
   font-size: 11px;
+  font-weight: 700;
 }
 
 .field textarea {
   width: 100%;
   padding: 12px 13px;
-  border: 1px solid #d8e1d7;
+  border: 1px solid var(--border-strong);
   border-radius: 9px;
-  background: #fbfcfb;
-  color: #1c2c21;
+  background: var(--bg-input);
+  color: var(--text-primary);
   font-size: 13px;
   resize: vertical;
   outline: none;
@@ -89,9 +91,9 @@
 }
 
 .field textarea:focus {
-  background: #ffffff;
-  border-color: #3f694e;
-  box-shadow: 0 0 0 3px rgba(53, 92, 68, 0.12);
+  background: var(--bg-input-focus);
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px var(--accent-focus-ring);
 }
 
 .form-actions {
@@ -111,13 +113,18 @@
 }
 
 .btn-secondary {
-  background: #eff3ee;
-  color: #425346;
+  background: var(--bg-input);
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
 }
 
 .btn-primary {
-  background: #355c44;
-  color: #ffffff;
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: var(--accent-darker);
 }
 
 .btn-primary:disabled {
