@@ -1,0 +1,29 @@
+@if (notice()) {
+  <div class="alert-banner alert-success" role="status">
+    <span class="alert-badge" aria-hidden="true">✓</span>
+    <span class="alert-text">{{ notice() }}</span>
+    <button
+      type="button"
+      class="alert-close"
+      (click)="dismissNotice.emit()"
+      aria-label="Cerrar aviso"
+    >
+      ×
+    </button>
+  </div>
+}
+
+@if (errorMessage()) {
+  <div class="alert-banner alert-error" role="alert">
+    <span class="alert-badge" aria-hidden="true">!</span>
+    <span class="alert-text">{{ errorMessage() }}</span>
+    <button
+      type="button"
+      class="alert-close"
+      (click)="dismissError.emit()"
+      aria-label="Cerrar error"
+    >
+      ×
+    </button>
+  </div>
+}

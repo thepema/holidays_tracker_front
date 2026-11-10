@@ -1,0 +1,70 @@
+:host {
+  display: block;
+}
+
+.alert-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.alert-success {
+  color: #1f5435;
+  background: #ebf7ef;
+  border-color: #c5e6d0;
+}
+
+.alert-error {
+  color: #8c2620;
+  background: #fdf0ef;
+  border-color: #f3c8c5;
+}
+
+.alert-badge {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.alert-success .alert-badge {
+  background: #2b7047;
+  color: #ffffff;
+}
+
+.alert-error .alert-badge {
+  background: #b9382f;
+  color: #ffffff;
+}
+
+.alert-text {
+  flex: 1;
+}
+
+.alert-close {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+  border-radius: 6px;
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.alert-close:hover {
+  opacity: 1;
+  background: rgba(0, 0, 0, 0.05);
+}

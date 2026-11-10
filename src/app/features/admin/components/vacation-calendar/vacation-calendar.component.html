@@ -1,0 +1,99 @@
+<section class="calendar-panel">
+  <header class="panel-header">
+    <div>
+      <p class="eyebrow">PLANIFICACIÓN DEL EQUIPO</p>
+      <h2>Calendario de ausencias y vacaciones</h2>
+      <p class="subtitle">
+        Disponibilidad diaria según los miembros seleccionados ({{ selectedUserIds().length }} de
+        {{ users().length }} activos en filtro)
+      </p>
+    </div>
+
+    <div class="month-controls">
+      <button
+        type="button"
+        class="btn-nav"
+        (click)="changeMonth(-1)"
+        aria-label="Mes anterior"
+        title="Mes anterior"
+      >
+        ‹
+      </button>
+      <span class="month-label">{{ monthTitle() }}</span>
+      <button
+        type="button"
+        class="btn-nav"
+        (click)="changeMonth(1)"
+        aria-label="Mes siguiente"
+        title="Mes siguiente"
+      >
+        ›
+      </button>
+      <button type="button" class="btn-today" (click)="goToToday()">Hoy</button>
+    </div>
+  </header>
+
+  <div class="calendar-wrapper">
+    <div class="calendar-grid">
+      @for (dayName of weekDays; track dayName) {
+        <div class="weekday-header">{{ dayName }}</div>
+      }
+
+      @for (cell of calendarCells(); track $index) {
+        @if (cell.date) {
+          <div
+            class="calendar-cell"
+            [class.is-today]="cell.isToday"
+            [class.is-weekend]="cell.isWeekend"
+            [class.has-vacations]="cell.vacationCount > 0"
+            [attr.title]="
+              cell.userNames.length
+                ? 'Ausentes (' + cell.vacationCount + '): ' + cell.userNames.join(', ')
+                : ''
+            "
+          >
+            <div class="cell-top">
+              <span class="day-number">{{ cell.dayNumber }}</span>
+              @if (cell.isToday) {
+                <span class="today-tag">Hoy</span>
+              }
+            </div>
+
+            @if (cell.vacationCount > 0) {
+              <div class="cell-occupancy">
+                <span class="occupancy-pill" [class.high-occupancy]="cell.vacationCount > 2">
+                  {{ cell.vacationCount }}
+                  {{ cell.vacationCount === 1 ? 'persona' : 'personas' }}
+                </span>
+                <div class="absent-preview">
+                  @for (name of cell.userNames.slice(0, 2); track name) {
+                    <span class="absent-name">{{ name }}</span>
+                  }
+                  @if (cell.userNames.length > 2) {
+                    <span class="absent-more">+{{ cell.userNames.length - 2 }} más</span>
+                  }
+                </div>
+              </div>
+            }
+          </div>
+        } @else {
+          <div class="calendar-cell is-empty" aria-hidden="true"></div>
+        }
+      }
+    </div>
+  </div>
+
+  <footer class="calendar-legend">
+    <div class="legend-items">
+      <span class="legend-item">
+        <i class="legend-dot normal-dot"></i>
+        <span>1–2 personas fuera</span>
+      </span>
+      <span class="legend-item">
+        <i class="legend-dot high-dot"></i>
+        <span>3 o más personas fuera (alta concurrencia)</span>
+      </span>
+    </div>
+    <span class="legend-hint">Pasa el cursor sobre un día para ver el detalle nominal</span>
+  </footer>
+</section>

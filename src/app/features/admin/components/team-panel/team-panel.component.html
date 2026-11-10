@@ -1,0 +1,142 @@
+<aside class="team-panel">
+  <header class="team-header">
+    <div>
+      <p class="eyebrow">DIRECTORIO DEL EQUIPO</p>
+      <h2>
+        <span>Personas</span>
+        <span class="count-pill">{{ users().length }}</span>
+      </h2>
+    </div>
+    <button
+      class="btn-add-icon"
+      type="button"
+      (click)="createClick.emit()"
+      aria-label="Crear nuevo usuario"
+      title="Crear nuevo usuario"
+    >
+      ＋ Nuevo
+    </button>
+  </header>
+
+  <div class="team-toolbar">
+    <button
+      type="button"
+      class="btn-bulk-invite"
+      [disabled]="pendingCount() === 0"
+      (click)="bulkInviteClick.emit()"
+    >
+      <span class="invite-label">↗ Invitar usuarios sin sesión activa</span>
+      <span class="invite-badge">{{ pendingCount() }}</span>
+    </button>
+
+    @if (users().length > 0) {
+      <div class="search-and-filters">
+        <input
+          type="search"
+          class="search-input"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          placeholder="Buscar por nombre, cargo o email…"
+          aria-label="Buscar miembro del equipo"
+        />
+        <div class="selection-bar">
+          <span class="selection-text">Filtro de calendario:</span>
+          <div class="selection-links">
+            <button type="button" (click)="selectAll.emit()">Todos</button>
+            <span>·</span>
+            <button type="button" (click)="clearSelection.emit()">Ninguno</button>
+          </div>
+        </div>
+      </div>
+    }
+  </div>
+
+  <div class="user-list" role="group" aria-label="Filtrar calendario por usuario">
+    @for (user of filteredUsers(); track user.id) {
+      <article class="user-card">
+        <label
+          class="user-check"
+          [title]="'Mostrar en calendario vacaciones de ' + displayName(user)"
+        >
+          <input
+            type="checkbox"
+            [checked]="isSelected(user.id)"
+            (change)="onCheckboxChange(user.id, $event)"
+          />
+          <span class="checkmark"></span>
+        </label>
+
+        <div class="user-avatar">{{ initials(user) }}</div>
+
+        <div class="user-info">
+          <div class="user-title-row">
+            <strong>{{ displayName(user) }}</strong>
+            @if (user.cargo) {
+              <span class="role-badge">{{ user.cargo }}</span>
+            }
+          </div>
+          <span class="user-email">{{ user.email }}</span>
+          <div class="user-meta">
+            <span class="vacation-pill">{{ yearCount(user.id) }} días este año</span>
+            <span class="session-status" [class.is-pending]="isPending(user)">
+              <i class="status-dot"></i>
+              {{ isPending(user) ? 'Sin sesión' : 'Sesión activa' }}
+            </span>
+          </div>
+        </div>
+
+        <details #actionMenu class="user-actions">
+          <summary aria-label="Acciones de usuario" title="Opciones">···</summary>
+          <div class="action-dropdown">
+            <button
+              type="button"
+              (click)="triggerAction(actionMenu, () => editUser.emit(user))"
+            >
+              ✎ Editar perfil
+            </button>
+            <button
+              type="button"
+              (click)="triggerAction(actionMenu, () => addVacations.emit(user))"
+            >
+              📅 Añadir vacaciones
+            </button>
+            <button
+              type="button"
+              (click)="triggerAction(actionMenu, () => resendInvite.emit(user))"
+            >
+              ↗ Reenviar invitación
+            </button>
+            <hr class="menu-divider" />
+            <button
+              type="button"
+              class="danger-item"
+              (click)="triggerAction(actionMenu, () => closeSession.emit(user))"
+            >
+              ✕ Cerrar sesión
+            </button>
+          </div>
+        </details>
+      </article>
+    } @empty {
+      <div class="empty-state">
+        <span class="empty-icon">✦</span>
+        @if (users().length === 0) {
+          <strong>Aún no hay usuarios registrados</strong>
+          <p>Da de alta a la primera persona de tu organización para comenzar la planificación.</p>
+          <button class="btn-outline" type="button" (click)="createClick.emit()">
+            ＋ Crear primer usuario
+          </button>
+        } @else {
+          <strong>Sin resultados para "{{ searchTerm() }}"</strong>
+          <p>Prueba con otro término de búsqueda.</p>
+        }
+      </div>
+    }
+  </div>
+
+  <footer class="team-footer">
+    <button class="btn-add-full" type="button" (click)="createClick.emit()">
+      ＋ Añadir nueva persona al equipo
+    </button>
+  </footer>
+</aside>

@@ -1,0 +1,146 @@
+<div class="admin-shell">
+  <app-admin-header
+    [activeView]="activeView()"
+    [requestCount]="state.requestUsers().length"
+    [loading]="state.loading()"
+    (viewChange)="activeView.set($event)"
+    (refreshData)="state.loadDashboard()"
+    (logoutClick)="logoutRequested.emit()"
+  />
+
+  <main class="workspace">
+    <section class="hero-bar">
+      <div class="hero-copy">
+        <p class="eyebrow">
+          {{ activeView() === 'dashboard' ? 'CONSOLA DE ADMINISTRACIÓN' : 'GESTIÓN DE ACCESOS' }}
+        </p>
+        <h1>
+          {{
+            activeView() === 'dashboard'
+              ? 'Resumen operativo del equipo'
+              : 'Solicitudes de sesión'
+          }}
+        </h1>
+        <p class="subtitle">
+          {{
+            activeView() === 'dashboard'
+              ? 'Supervisa la planificación vacacional, gestiona altas y administra el acceso de tu organización.'
+              : 'Atiende las peticiones de recuperación de acceso enviadas por los miembros del equipo.'
+          }}
+        </p>
+      </div>
+      <div class="hero-meta">
+        <span class="current-date">{{ currentDateFormatted() }}</span>
+      </div>
+    </section>
+
+    <app-alert-banner
+      [notice]="notifications.notice()"
+      [errorMessage]="notifications.errorMessage()"
+      (dismissNotice)="notifications.clearNotice()"
+      (dismissError)="notifications.clearError()"
+    />
+
+    <section class="stats-grid" aria-label="Indicadores clave del equipo">
+      <app-stat-card
+        label="Personas en el equipo"
+        [value]="state.users().length"
+        note="registrados"
+        icon="◈"
+        accent="indigo"
+      />
+      <app-stat-card
+        label="Sesiones activas"
+        [value]="state.activeSessionCount()"
+        [note]="'de ' + state.users().length + ' totales'"
+        icon="✓"
+        accent="emerald"
+      />
+      <app-stat-card
+        label="Días registrados este año"
+        [value]="state.vacationCountYear()"
+        note="días acumulados"
+        icon="☼"
+        accent="amber"
+      />
+      <app-stat-card
+        label="Pendientes de activación"
+        [value]="state.pendingUsers().length"
+        note="sin sesión"
+        icon="↗"
+        accent="slate"
+      />
+    </section>
+
+    @if (activeView() === 'dashboard') {
+      <div class="dashboard-layout">
+        <app-vacation-calendar
+          [users]="state.users()"
+          [vacations]="state.vacations()"
+          [selectedUserIds]="state.selectedUserIds()"
+        />
+
+        <app-team-panel
+          [users]="state.users()"
+          [pendingCount]="state.pendingUsers().length"
+          [selectedUserIds]="state.selectedUserIds()"
+          [userYearCounts]="state.userCountByYearMap()"
+          (createClick)="openCreateUserModal()"
+          (bulkInviteClick)="openConfirmBulkModal()"
+          (toggleSelection)="handleUserSelection($event)"
+          (selectAll)="state.selectAllUsers()"
+          (clearSelection)="state.clearUserSelection()"
+          (editUser)="openEditUserModal($event)"
+          (addVacations)="openVacationsModal($event)"
+          (resendInvite)="state.resendInvitation($event)"
+          (closeSession)="state.closeUserSession($event)"
+        />
+      </div>
+    } @else {
+      <app-session-requests
+        [requestUsers]="state.requestUsers()"
+        (resendInvite)="state.resendInvitation($event)"
+      />
+    }
+
+    @if (state.loading()) {
+      <div class="loading-toast" role="status" aria-live="polite">
+        <span class="spinner"></span>
+        <span>Sincronizando datos con el servidor…</span>
+      </div>
+    }
+
+    <footer class="workspace-footer">
+      <span class="footer-brand">HOLIDAYS TRACKER · CONSOLA DE ADMINISTRACIÓN</span>
+      <span>Un equipo que descansa, rinde mejor.</span>
+    </footer>
+  </main>
+</div>
+
+@if (activeModal() === 'create' || activeModal() === 'edit') {
+  <app-user-form-modal
+    [mode]="activeModal() === 'edit' ? 'edit' : 'create'"
+    [initialUser]="selectedUserForModal()"
+    [saving]="state.saving()"
+    (save)="handleSaveUser($event)"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'vacations' && selectedUserForModal(); as targetUser) {
+  <app-vacation-modal
+    [user]="targetUser"
+    [saving]="state.saving()"
+    (saveDates)="handleSaveVacations($event)"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'confirm-bulk') {
+  <app-confirm-bulk-modal
+    [pendingCount]="state.pendingUsers().length"
+    [saving]="state.saving()"
+    (confirmSend)="handleConfirmBulkInvite()"
+    (cancel)="closeModal()"
+  />
+}

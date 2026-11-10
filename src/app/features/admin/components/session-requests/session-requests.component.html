@@ -1,0 +1,50 @@
+<section class="requests-panel">
+  <header class="panel-header">
+    <div>
+      <p class="eyebrow">RECUPERACIÓN Y ACCESO A CUENTAS</p>
+      <h2>Solicitudes de sesión pendientes</h2>
+      <p class="subtitle">
+        Reenvía un enlace de invitación a los miembros del equipo que han solicitado restablecer su
+        sesión.
+      </p>
+    </div>
+    <span class="total-badge">{{ requestUsers().length }} pendientes</span>
+  </header>
+
+  @if (requestUsers().length > 0) {
+    <div class="request-list">
+      @for (user of requestUsers(); track user.id) {
+        <article class="request-row">
+          <div class="user-avatar">{{ initials(user) }}</div>
+          <div class="user-details">
+            <div class="name-line">
+              <strong>{{ displayName(user) }}</strong>
+              @if (user.cargo) {
+                <span class="role-chip">{{ user.cargo }}</span>
+              }
+            </div>
+            <span class="email-text">{{ user.email }}</span>
+          </div>
+          <span class="status-pill">Solicitud pendiente</span>
+          <button
+            class="btn-resend"
+            type="button"
+            (click)="resendInvite.emit(user)"
+          >
+            <span>Reenviar invitación</span>
+            <span aria-hidden="true">↗</span>
+          </button>
+        </article>
+      }
+    </div>
+  } @else {
+    <div class="empty-requests">
+      <div class="empty-badge">✓</div>
+      <strong>Todo al día: no hay solicitudes pendientes</strong>
+      <p>
+        Cuando un empleado solicite recuperar el acceso a su sesión desde la aplicación, aparecerá
+        en esta bandeja para su aprobación.
+      </p>
+    </div>
+  }
+</section>

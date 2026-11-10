@@ -1,0 +1,12 @@
+<article class="stat-card" [attr.data-accent]="accent()">
+  <div class="stat-icon" aria-hidden="true">{{ icon() }}</div>
+  <div class="stat-body">
+    <span class="stat-label">{{ label() }}</span>
+    <div class="stat-value-row">
+      <strong class="stat-value">{{ value() }}</strong>
+      @if (note()) {
+        <span class="stat-note">{{ note() }}</span>
+      }
+    </div>
+  </div>
+</article>
