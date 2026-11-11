@@ -41,34 +41,20 @@
           placeholder="Buscar por nombre, cargo o email…"
           aria-label="Buscar usuario"
         />
-        <div class="selection-bar">
-          <span class="selection-text">Filtro de calendario:</span>
-          <div class="selection-links">
-            <button type="button" (click)="selectAll.emit()">Todos</button>
-            <span>·</span>
-            <button type="button" (click)="clearSelection.emit()">Ninguno</button>
-          </div>
-        </div>
       </div>
     }
   </div>
 
-  <div class="user-list" role="group" aria-label="Filtrar calendario por usuario">
+  <div class="user-list" role="list" aria-label="Listado de usuarios">
     @for (user of filteredUsers(); track user.id) {
-      <article class="user-card">
-        <label
-          class="user-check"
-          [title]="'Mostrar en calendario vacaciones de ' + displayName(user)"
+      <article class="user-card" role="listitem">
+        <div
+          class="user-avatar"
+          [style.background-color]="userColor(user).bg"
+          [style.color]="userColor(user).text"
         >
-          <input
-            type="checkbox"
-            [checked]="isSelected(user.id)"
-            (change)="onCheckboxChange(user.id, $event)"
-          />
-          <span class="checkmark"></span>
-        </label>
-
-        <div class="user-avatar">{{ initials(user) }}</div>
+          {{ initials(user) }}
+        </div>
 
         <div class="user-info">
           <div class="user-title-row">

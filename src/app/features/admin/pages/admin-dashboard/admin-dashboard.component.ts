@@ -17,10 +17,7 @@ import {
 } from '../../components/admin-header/admin-header.component';
 import { ConfirmBulkModalComponent } from '../../components/confirm-bulk-modal/confirm-bulk-modal.component';
 import { SessionRequestsComponent } from '../../components/session-requests/session-requests.component';
-import {
-  TeamPanelComponent,
-  UserSelectionChange,
-} from '../../components/team-panel/team-panel.component';
+import { TeamPanelComponent } from '../../components/team-panel/team-panel.component';
 import { UserFormModalComponent } from '../../components/user-form-modal/user-form-modal.component';
 import { VacationCalendarComponent } from '../../components/vacation-calendar/vacation-calendar.component';
 import { VacationModalComponent } from '../../components/vacation-modal/vacation-modal.component';
@@ -89,10 +86,6 @@ export class AdminDashboardComponent implements OnInit {
   protected closeModal(): void {
     this.activeModal.set('');
     this.selectedUserForModal.set(null);
-  }
-
-  protected handleUserSelection(change: UserSelectionChange): void {
-    this.state.toggleUserSelection(change.userId, change.checked);
   }
 
   protected handleSaveUser(payload: UserFormPayload): void {

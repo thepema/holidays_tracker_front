@@ -5,9 +5,25 @@ import { SharedModule } from './shared/shared.module';
 import { AuthModule } from './features/auth/auth.module';
 import { AdminModule } from './features/admin/admin.module';
 import { InvitationModule } from './features/invitation/invitation.module';
+import { UserPortalModule } from './features/user-portal/user-portal.module';
 
 @NgModule({
-  imports: [CoreModule, RouterModule, SharedModule, AuthModule, AdminModule, InvitationModule],
-  exports: [RouterModule, SharedModule, AuthModule, AdminModule, InvitationModule],
+  imports: [
+    CoreModule,
+    RouterModule,
+    SharedModule,
+    AuthModule,
+    AdminModule,
+    InvitationModule,
+    UserPortalModule,
+  ],
+  exports: [
+    RouterModule,
+    SharedModule,
+    AuthModule,
+    AdminModule,
+    InvitationModule,
+    UserPortalModule,
+  ],
 })
 export class AppModule {}

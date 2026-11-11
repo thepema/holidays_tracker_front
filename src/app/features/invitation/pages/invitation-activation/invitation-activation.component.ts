@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionProfile, UserSessionService } from '../../../../core/services/user-session.service';
@@ -10,7 +11,7 @@ type ActivationState = 'cargando' | 'exito' | 'error';
 @Component({
   selector: 'app-invitation-activation',
   standalone: true,
-  imports: [CommonModule, RouterModule],
+  imports: [CommonModule, RouterModule, FormsModule],
   templateUrl: './invitation-activation.component.html',
   styleUrls: ['./invitation-activation.component.css'],
 })
@@ -26,6 +27,11 @@ export class InvitationActivationComponent implements OnInit {
   readonly userProfile = signal<UserSessionProfile | null>(null);
   readonly copied = signal<boolean>(false);
   readonly codeConfirmed = signal<boolean>(false);
+
+  readonly requestingNew = signal<boolean>(false);
+  readonly requestEmail = signal<string>('');
+  readonly requestSuccess = signal<boolean>(false);
+  readonly requestLoading = signal<boolean>(false);
 
   readonly userDisplayName = computed(() => {
     const user = this.userProfile();
@@ -90,6 +96,37 @@ export class InvitationActivationComponent implements OnInit {
     if (code) {
       this.activateInvitation(code);
     }
+  }
+
+  startRequestNewInvitation(): void {
+    this.requestingNew.set(true);
+    this.requestSuccess.set(false);
+  }
+
+  cancelRequestNewInvitation(): void {
+    this.requestingNew.set(false);
+    this.requestEmail.set('');
+  }
+
+  submitRequestNewInvitation(): void {
+    const identifier = this.requestEmail().trim() || this.extractInvitationCode();
+    if (!identifier) {
+      return;
+    }
+
+    this.requestLoading.set(true);
+    this.api.requestSessionByEmailOrCode(identifier).subscribe({
+      next: () => {
+        this.requestLoading.set(false);
+        this.requestingNew.set(false);
+        this.requestSuccess.set(true);
+      },
+      error: () => {
+        this.requestLoading.set(false);
+        this.requestingNew.set(false);
+        this.requestSuccess.set(true);
+      },
+    });
   }
 
   async copyRecoveryCode(): Promise<void> {

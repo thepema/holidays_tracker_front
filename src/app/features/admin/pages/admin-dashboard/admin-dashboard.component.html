@@ -46,19 +46,14 @@
         <app-vacation-calendar
           [users]="state.users()"
           [vacations]="state.vacations()"
-          [selectedUserIds]="state.selectedUserIds()"
         />
 
         <app-team-panel
           [users]="state.users()"
           [pendingCount]="state.pendingUsers().length"
-          [selectedUserIds]="state.selectedUserIds()"
           [userYearCounts]="state.userCountByYearMap()"
           (createClick)="openCreateUserModal()"
           (bulkInviteClick)="openConfirmBulkModal()"
-          (toggleSelection)="handleUserSelection($event)"
-          (selectAll)="state.selectAllUsers()"
-          (clearSelection)="state.clearUserSelection()"
           (editUser)="openEditUserModal($event)"
           (addVacations)="openVacationsModal($event)"
           (resendInvite)="state.resendInvitation($event)"

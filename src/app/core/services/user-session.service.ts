@@ -72,7 +72,35 @@ export class UserSessionService {
     }
   }
 
+  setProfile(user: UserSessionProfile): void {
+    this.currentUser.set(user);
+    try {
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(user));
+      }
+    } catch {
+      // Ignorar
+    }
+  }
+
   private readTokenFromStorage(): string {
+    try {
+      if (typeof document !== 'undefined' && document.cookie) {
+        const match = document.cookie
+          .split(';')
+          .map((c) => c.trim())
+          .find((c) => c.startsWith('ht_session='));
+        if (match) {
+          const cookieVal = decodeURIComponent(match.slice('ht_session='.length)).trim();
+          if (cookieVal) {
+            return cookieVal;
+          }
+        }
+      }
+    } catch {
+      // Ignorar
+    }
+
     try {
       if (typeof localStorage !== 'undefined') {
         return localStorage.getItem(USER_TOKEN_STORAGE_KEY) ?? '';

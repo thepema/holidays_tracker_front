@@ -7,7 +7,7 @@ import {
   isUserRequested,
   normalizeUser,
 } from '../models/user.model';
-import { VacationDay, normalizeVacation } from '../models/vacation.model';
+import { VacationDay, normalizeVacationEntry } from '../models/vacation.model';
 import { asRecord, extractArray, extractErrorMessage } from '../utils/http-helpers';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
@@ -46,14 +46,31 @@ export class AdminStateService {
     const yearPrefix = `${new Date().getFullYear()}-`;
     const dateSetByUser = new Map<number, Set<string>>();
 
+    const nameToIdMap = new Map<string, number>();
+    for (const user of this.rawUsers()) {
+      const fullName = getUserDisplayName(user).toLowerCase();
+      if (fullName) {
+        nameToIdMap.set(fullName, user.id);
+      }
+    }
+
     for (const item of this.vacations()) {
       if (!item.fecha.startsWith(yearPrefix)) {
         continue;
       }
-      let set = dateSetByUser.get(item.usuarioId);
+      let targetUserId = item.usuarioId;
+      if (!this.rawUsers().some((u) => u.id === targetUserId)) {
+        const itemFullName = `${item.nombre ?? ''} ${item.apellidos ?? ''}`.trim().toLowerCase();
+        const matchedId = nameToIdMap.get(itemFullName);
+        if (matchedId !== undefined) {
+          targetUserId = matchedId;
+        }
+      }
+
+      let set = dateSetByUser.get(targetUserId);
       if (!set) {
         set = new Set<string>();
-        dateSetByUser.set(item.usuarioId, set);
+        dateSetByUser.set(targetUserId, set);
       }
       set.add(item.fecha);
     }
@@ -143,9 +160,14 @@ export class AdminStateService {
     // 3. GET /api/vacaciones
     this.api.getVacations(token).subscribe({
       next: (value) => {
-        const parsedVacations = extractArray(value, ['vacaciones', 'holidays', 'data'])
-          .map((item) => normalizeVacation(item))
-          .filter((item): item is VacationDay => item !== null);
+        const parsedVacations = extractArray(value, [
+          'vacaciones',
+          'holidays',
+          'data',
+          'items',
+          'rows',
+          'results',
+        ]).flatMap((item) => normalizeVacationEntry(item));
         this.vacations.set(parsedVacations);
         finish();
       },

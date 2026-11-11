@@ -128,6 +128,23 @@
 
 @media (max-width: 600px) {
   .workspace {
-    padding: 20px 16px;
+    padding: 16px 12px 24px;
+  }
+
+  .hero-bar {
+    gap: 12px;
+    margin-bottom: 18px;
+  }
+
+  .hero-copy h1 {
+    font-size: 22px;
+  }
+
+  .subtitle {
+    font-size: 13px;
+  }
+
+  .dashboard-layout {
+    gap: 16px;
   }
 }

@@ -12,6 +12,11 @@ export function extractArray(value: unknown, keys: string[]): unknown[] {
       return record[key] as unknown[];
     }
   }
+  for (const val of Object.values(record)) {
+    if (Array.isArray(val)) {
+      return val as unknown[];
+    }
+  }
   return [];
 }
 

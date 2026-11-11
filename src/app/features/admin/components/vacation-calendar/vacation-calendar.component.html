@@ -1,11 +1,14 @@
 <section class="calendar-panel">
   <header class="panel-header">
-    <div>
+    <div class="header-copy">
       <p class="eyebrow">PLANIFICACIÓN</p>
-      <h2>Calendario de ausencias y vacaciones</h2>
+      <h2>Calendario de vacaciones</h2>
       <p class="subtitle">
-        Disponibilidad diaria según los usuarios seleccionados ({{ selectedUserIds().length }} de
-        {{ users().length }} activos en filtro)
+        Pulsa sobre cualquier día con vacaciones para ver el detalle de los usuarios
+        @if (monthVacationDaysCount() > 0) {
+          · <strong>{{ monthVacationDaysCount() }}</strong>
+          {{ monthVacationDaysCount() === 1 ? 'día con ausencias' : 'días con ausencias' }} este mes
+        }
       </p>
     </div>
 
@@ -35,47 +38,81 @@
 
   <div class="calendar-wrapper">
     <div class="calendar-grid">
-      @for (dayName of weekDays; track dayName) {
-        <div class="weekday-header">{{ dayName }}</div>
+      @for (dayName of weekDays; track dayName.full) {
+        <div class="weekday-header">
+          <span class="weekday-full">{{ dayName.full }}</span>
+          <span class="weekday-short">{{ dayName.short }}</span>
+        </div>
       }
 
       @for (cell of calendarCells(); track $index) {
         @if (cell.date) {
-          <div
-            class="calendar-cell"
-            [class.is-today]="cell.isToday"
-            [class.is-weekend]="cell.isWeekend"
-            [class.has-vacations]="cell.vacationCount > 0"
-            [attr.title]="
-              cell.userNames.length
-                ? 'Ausentes (' + cell.vacationCount + '): ' + cell.userNames.join(', ')
-                : ''
-            "
-          >
-            <div class="cell-top">
-              <span class="day-number">{{ cell.dayNumber }}</span>
-              @if (cell.isToday) {
-                <span class="today-tag">Hoy</span>
-              }
-            </div>
-
-            @if (cell.vacationCount > 0) {
-              <div class="cell-occupancy">
-                <span class="occupancy-pill" [class.high-occupancy]="cell.vacationCount > 2">
-                  {{ cell.vacationCount }}
-                  {{ cell.vacationCount === 1 ? 'persona' : 'personas' }}
-                </span>
-                <div class="absent-preview">
-                  @for (name of cell.userNames.slice(0, 2); track name) {
-                    <span class="absent-name">{{ name }}</span>
-                  }
-                  @if (cell.userNames.length > 2) {
-                    <span class="absent-more">+{{ cell.userNames.length - 2 }} más</span>
-                  }
-                </div>
+          @if (cell.vacationCount > 0) {
+            <button
+              type="button"
+              class="calendar-cell has-vacations"
+              [class.is-today]="cell.isToday"
+              [class.is-weekend]="cell.isWeekend"
+              [class.is-selected]="selectedDateKey() === cell.dateKey"
+              (click)="selectDay(cell)"
+              [attr.aria-label]="
+                'Día ' +
+                cell.dayNumber +
+                ', ' +
+                cell.vacationCount +
+                ' de vacaciones: ' +
+                cell.userNames.join(', ')
+              "
+              [attr.aria-pressed]="selectedDateKey() === cell.dateKey"
+            >
+              <div class="cell-top">
+                <span class="day-number">{{ cell.dayNumber }}</span>
+                @if (cell.isToday) {
+                  <span class="today-tag">Hoy</span>
+                }
               </div>
-            }
-          </div>
+
+              <div class="cell-bubbles">
+                @for (user of cell.users.slice(0, 4); track user.usuarioId) {
+                  <span
+                    class="user-bubble"
+                    [style.background-color]="user.color.bg"
+                    [style.color]="user.color.text"
+                    [style.border-color]="user.color.border"
+                    [attr.title]="user.fullName + (user.cargo ? ' · ' + user.cargo : '')"
+                  >
+                    {{ user.initials }}
+                  </span>
+                }
+                @if (cell.users.length > 4) {
+                  <span
+                    class="user-bubble more-bubble"
+                    [attr.title]="
+                      '+' +
+                      (cell.users.length - 4) +
+                      ' más: ' +
+                      cell.userNames.slice(4).join(', ')
+                    "
+                  >
+                    +{{ cell.users.length - 4 }}
+                  </span>
+                }
+              </div>
+            </button>
+          } @else {
+            <div
+              class="calendar-cell"
+              [class.is-today]="cell.isToday"
+              [class.is-weekend]="cell.isWeekend"
+            >
+              <div class="cell-top">
+                <span class="day-number">{{ cell.dayNumber }}</span>
+                @if (cell.isToday) {
+                  <span class="today-tag">Hoy</span>
+                }
+              </div>
+            </div>
+          }
         } @else {
           <div class="calendar-cell is-empty" aria-hidden="true"></div>
         }
@@ -83,17 +120,96 @@
     </div>
   </div>
 
+  @if (selectedCell(); as activeCell) {
+    <section class="day-detail-card" aria-live="polite">
+      <header class="detail-header">
+        <div class="detail-title-group">
+          <p class="detail-eyebrow">DETALLE DEL DÍA SELECCIONADO</p>
+          <div class="detail-date-row">
+            <h3 class="detail-date">{{ selectedDateFormatted() }}</h3>
+            <span
+              class="detail-count-badge"
+              [class.has-users]="activeCell.vacationCount > 0"
+            >
+              {{
+                activeCell.vacationCount === 0
+                  ? 'Sin vacaciones'
+                  : activeCell.vacationCount +
+                    (activeCell.vacationCount === 1
+                      ? ' persona de vacaciones'
+                      : ' personas de vacaciones')
+              }}
+            </span>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="btn-close-detail"
+          (click)="closeDetail()"
+          aria-label="Cerrar detalle del día"
+          title="Cerrar detalle"
+        >
+          ✕
+        </button>
+      </header>
+
+      @if (activeCell.users.length > 0) {
+        <div class="detail-users-grid">
+          @for (user of activeCell.users; track user.usuarioId) {
+            <article class="detail-user-item">
+              <div
+                class="detail-user-bubble"
+                [style.background-color]="user.color.bg"
+                [style.color]="user.color.text"
+                [style.border-color]="user.color.border"
+              >
+                {{ user.initials }}
+              </div>
+              <div class="detail-user-info">
+                <div class="detail-user-name-row">
+                  <strong>{{ user.fullName }}</strong>
+                  @if (user.cargo) {
+                    <span class="detail-user-role">{{ user.cargo }}</span>
+                  }
+                </div>
+                @if (user.email) {
+                  <span class="detail-user-email">{{ user.email }}</span>
+                } @else {
+                  <span class="detail-user-status">Ausencia por vacaciones registrada</span>
+                }
+              </div>
+            </article>
+          }
+        </div>
+      } @else {
+        <div class="detail-empty">
+          <span>No hay ningún usuario de vacaciones en esta fecha.</span>
+        </div>
+      }
+    </section>
+  }
+
   <footer class="calendar-legend">
-    <div class="legend-items">
-      <span class="legend-item">
-        <i class="legend-dot normal-dot"></i>
-        <span>1–2 personas fuera</span>
-      </span>
-      <span class="legend-item">
-        <i class="legend-dot high-dot"></i>
-        <span>3 o más personas fuera (alta concurrencia)</span>
-      </span>
-    </div>
-    <span class="legend-hint">Pasa el cursor sobre un día para ver el detalle nominal</span>
+    @if (monthVacationUsers().length > 0) {
+      <div class="legend-users">
+        <span class="legend-label">En este mes:</span>
+        @for (user of monthVacationUsers(); track user.usuarioId) {
+          <span class="legend-user-chip">
+            <span
+              class="legend-user-dot"
+              [style.background-color]="user.color.bg"
+              [style.color]="user.color.text"
+            >
+              {{ user.initials }}
+            </span>
+            <span class="legend-user-name">{{ user.fullName }}</span>
+          </span>
+        }
+      </div>
+    } @else {
+      <span class="legend-empty">No hay vacaciones registradas en este mes.</span>
+    }
+    <span class="legend-hint">Pulsa en un día con vacaciones para ver los usuarios</span>
   </footer>
 </section>

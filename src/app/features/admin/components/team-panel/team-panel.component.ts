@@ -14,11 +14,7 @@ import {
   getVacationTypeLabel,
   isUserPending,
 } from '../../../../core/models/user.model';
-
-export interface UserSelectionChange {
-  userId: number;
-  checked: boolean;
-}
+import { UserColorPalette, getUserColor } from '../../../../core/models/vacation.model';
 
 @Component({
   selector: 'app-team-panel',
@@ -31,14 +27,10 @@ export interface UserSelectionChange {
 export class TeamPanelComponent {
   readonly users = input.required<AdminUser[]>();
   readonly pendingCount = input.required<number>();
-  readonly selectedUserIds = input.required<number[]>();
   readonly userYearCounts = input.required<Map<number, number>>();
 
   readonly createClick = output<void>();
   readonly bulkInviteClick = output<void>();
-  readonly toggleSelection = output<UserSelectionChange>();
-  readonly selectAll = output<void>();
-  readonly clearSelection = output<void>();
   readonly editUser = output<AdminUser>();
   readonly addVacations = output<AdminUser>();
   readonly resendInvite = output<AdminUser>();
@@ -62,10 +54,6 @@ export class TeamPanelComponent {
     });
   });
 
-  protected isSelected(userId: number): boolean {
-    return this.selectedUserIds().includes(userId);
-  }
-
   protected isPending(user: AdminUser): boolean {
     return isUserPending(user);
   }
@@ -78,17 +66,16 @@ export class TeamPanelComponent {
     return getUserInitials(user);
   }
 
+  protected userColor(user: AdminUser): UserColorPalette {
+    return getUserColor(user.id, getUserDisplayName(user));
+  }
+
   protected yearCount(userId: number): number {
     return this.userYearCounts().get(userId) ?? 0;
   }
 
   protected vacationTypeLabel(value: string): string {
     return getVacationTypeLabel(value);
-  }
-
-  protected onCheckboxChange(userId: number, event: Event): void {
-    const target = event.target as HTMLInputElement | null;
-    this.toggleSelection.emit({ userId, checked: Boolean(target?.checked) });
   }
 
   protected triggerAction(detailsEl: HTMLDetailsElement, callback: () => void): void {

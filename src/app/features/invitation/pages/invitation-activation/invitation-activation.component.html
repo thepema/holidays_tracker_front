@@ -147,14 +147,56 @@
           </p>
         </div>
 
-        <div class="error-actions">
-          <button type="button" class="btn-action" (click)="retry()">
-            Reintentar
-          </button>
-          <a routerLink="/administracion" class="btn-primary link-btn">
-            Ir a inicio
-          </a>
-        </div>
+        @if (requestSuccess()) {
+          <div class="request-success-box" role="status">
+            <span class="request-success-icon">✓</span>
+            <div class="request-success-content">
+              <strong>Solicitud registrada</strong>
+              <p>Se ha notificado al administrador para emitir y enviarte un nuevo enlace de invitación.</p>
+            </div>
+          </div>
+        } @else if (requestingNew()) {
+          <div class="request-form-card">
+            <label for="request-email-input" class="request-form-label">
+              Introduce tu correo corporativo para volver a solicitar la invitación:
+            </label>
+            <div class="request-input-row">
+              <input
+                id="request-email-input"
+                type="email"
+                class="request-email-input"
+                placeholder="tu.email@empresa.com"
+                [ngModel]="requestEmail()"
+                (ngModelChange)="requestEmail.set($event)"
+                (keyup.enter)="submitRequestNewInvitation()"
+              />
+              <button
+                type="button"
+                class="btn-primary"
+                [disabled]="requestLoading() || !requestEmail().trim()"
+                (click)="submitRequestNewInvitation()"
+              >
+                {{ requestLoading() ? 'Enviando…' : 'Enviar' }}
+              </button>
+              <button
+                type="button"
+                class="btn-action"
+                (click)="cancelRequestNewInvitation()"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        } @else {
+          <div class="error-actions">
+            <button type="button" class="btn-action" (click)="retry()">
+              Reintentar
+            </button>
+            <button type="button" class="btn-primary" (click)="startRequestNewInvitation()">
+              Volver a solicitar
+            </button>
+          </div>
+        }
       </div>
     }
 
