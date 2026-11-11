@@ -1,0 +1,60 @@
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="topbar-left">
+      <a
+        class="brand"
+        href="javascript:void(0)"
+        (click)="viewChange.emit('dashboard')"
+        aria-label="Holidays Tracker, ir al resumen"
+      >
+        <span class="brand-mark">h</span>
+        <span class="brand-name">holidays<span class="brand-light"> tracker</span></span>
+      </a>
+
+      <nav class="main-nav" aria-label="Secciones de administración">
+        <button
+          type="button"
+          class="nav-item"
+          [class.active]="activeView() === 'dashboard'"
+          (click)="viewChange.emit('dashboard')"
+        >
+          <span>Panel y Calendario</span>
+        </button>
+        <button
+          type="button"
+          class="nav-item"
+          [class.active]="activeView() === 'requests'"
+          (click)="viewChange.emit('requests')"
+        >
+          <span>Solicitudes de sesión</span>
+          <span class="nav-badge" [class.has-items]="requestCount() > 0">
+            {{ requestCount() }}
+          </span>
+        </button>
+      </nav>
+    </div>
+
+    <div class="topbar-right">
+      <button
+        type="button"
+        class="btn-refresh"
+        [disabled]="loading()"
+        (click)="refreshData.emit()"
+        title="Sincronizar datos"
+      >
+        <span class="refresh-icon" [class.spinning]="loading()">↻</span>
+        <span class="refresh-text">Actualizar</span>
+      </button>
+
+      <button
+        class="logout-btn"
+        type="button"
+        title="Cerrar sesión de administrador"
+        (click)="logoutClick.emit()"
+      >
+        <span class="avatar-badge">AD</span>
+        <span class="logout-label">Salir</span>
+      </button>
+    </div>
+  </div>
+</header>

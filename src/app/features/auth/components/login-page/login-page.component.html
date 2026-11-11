@@ -1,0 +1,64 @@
+<main class="login-page">
+
+  <section class="login-panel">
+    <div class="login-card">
+      <div class="brand">
+        <span class="brand-mark">h</span>
+        <span class="brand-text">holidays<span class="brand-light"> tracker</span></span>
+      </div>
+
+      <div class="login-copy">
+        <p class="eyebrow">ADMINISTRACIÓN</p>
+        <h1>Iniciar sesión</h1>
+        <p class="subtitle">Introduce la contraseña para acceder al panel.</p>
+      </div>
+
+      <form class="login-form" (ngSubmit)="submitLogin()">
+        <div class="field-group">
+          <label for="admin-password">Contraseña</label>
+          <div class="password-wrapper">
+            <input
+              id="admin-password"
+              name="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              [ngModel]="password()"
+              (ngModelChange)="password.set($event)"
+              placeholder="Contraseña de administrador"
+              autocomplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              class="toggle-pwd"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              {{ showPassword() ? 'Ocultar' : 'Mostrar' }}
+            </button>
+          </div>
+        </div>
+
+        @if (auth.loginError()) {
+          <div class="error-box" role="alert">
+            <span class="error-dot">!</span>
+            <span>{{ auth.loginError() }}</span>
+          </div>
+        }
+
+        <button
+          class="btn-primary login-submit"
+          type="submit"
+          [disabled]="auth.loading() || !password().trim()"
+        >
+          <span>{{ auth.loading() ? 'Entrando…' : 'Entrar' }}</span>
+          <span aria-hidden="true">→</span>
+        </button>
+      </form>
+
+      <footer class="login-foot">
+        <span class="security-dot"></span>
+        <span>Acceso exclusivo de administración</span>
+      </footer>
+    </div>
+  </section>
+</main>

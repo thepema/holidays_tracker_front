@@ -1,0 +1,141 @@
+<aside class="team-panel">
+  <header class="team-header">
+    <div>
+      <p class="eyebrow">GESTIÓN DE USUARIOS</p>
+      <h2>
+        <span>Personas</span>
+        <span class="count-pill">{{ users().length }}</span>
+      </h2>
+    </div>
+    <button
+      class="btn-add-icon"
+      type="button"
+      (click)="createClick.emit()"
+      aria-label="Crear nuevo usuario"
+      title="Crear nuevo usuario"
+    >
+      ＋ Nuevo
+    </button>
+  </header>
+
+  <div class="team-toolbar">
+    <button
+      type="button"
+      class="btn-bulk-invite"
+      [disabled]="users().length === 0"
+      (click)="bulkInviteClick.emit()"
+    >
+      <span class="invite-label">↗ Invitar usuarios sin sesión activa</span>
+      @if (pendingCount() > 0) {
+        <span class="invite-badge" title="Usuarios con invitación en proceso">{{ pendingCount() }}</span>
+      }
+    </button>
+
+    @if (users().length > 0) {
+      <div class="search-and-filters">
+        <input
+          type="search"
+          class="search-input"
+          [ngModel]="searchTerm()"
+          (ngModelChange)="searchTerm.set($event)"
+          placeholder="Buscar por nombre, cargo o email…"
+          aria-label="Buscar usuario"
+        />
+      </div>
+    }
+  </div>
+
+  <div class="user-list" role="list" aria-label="Listado de usuarios">
+    @for (user of filteredUsers(); track user.id) {
+      <article class="user-card" role="listitem">
+        <div
+          class="user-avatar"
+          [style.background-color]="userColor(user).bg"
+          [style.color]="userColor(user).text"
+        >
+          {{ initials(user) }}
+        </div>
+
+        <div class="user-info">
+          <div class="user-title-row">
+            <strong>{{ displayName(user) }}</strong>
+            @if (user.cargo) {
+              <span class="role-badge">{{ user.cargo }}</span>
+            }
+          </div>
+          <span class="user-email">{{ user.email }}</span>
+          <div class="user-meta">
+            <span class="vacation-pill">{{ yearCount(user.id) }} días este año</span>
+            @if (isPending(user)) {
+              <span class="session-status is-pending">
+                <i class="status-dot"></i>
+                Pendiente de activar
+              </span>
+            } @else if (user.tipo_vacaciones) {
+              <span class="session-status">
+                {{ vacationTypeLabel(user.tipo_vacaciones) }}
+              </span>
+            }
+          </div>
+        </div>
+
+        <button
+          type="button"
+          class="actions-trigger"
+          aria-label="Acciones de usuario"
+          aria-haspopup="menu"
+          title="Opciones"
+          (click)="toggleMenu($event, user)"
+        >
+          ···
+        </button>
+      </article>
+    } @empty {
+      <div class="empty-state">
+        <span class="empty-icon">✦</span>
+        @if (users().length === 0) {
+          <strong>Aún no hay usuarios registrados</strong>
+          <p>Da de alta al primer usuario para comenzar la planificación.</p>
+          <button class="btn-outline" type="button" (click)="createClick.emit()">
+            ＋ Crear primer usuario
+          </button>
+        } @else {
+          <strong>Sin resultados para "{{ searchTerm() }}"</strong>
+          <p>Prueba con otro término de búsqueda.</p>
+        }
+      </div>
+    }
+  </div>
+</aside>
+
+<div
+  #popup
+  class="action-dropdown"
+  role="menu"
+  [class.is-open]="menuUser() !== null"
+  [style.left.px]="menuPos().x"
+  [style.top.px]="menuPos().y"
+>
+  @if (menuUser(); as user) {
+    <button type="button" role="menuitem" (click)="onEditUser(user)">
+      ✎ Editar perfil
+    </button>
+    <button type="button" role="menuitem" (click)="onAddVacations(user)">
+      📅 Añadir vacaciones
+    </button>
+    @if (!hasActiveSession(user)) {
+      <button type="button" role="menuitem" (click)="onResendInvite(user)">
+        ↗ Enviar invitación
+      </button>
+    }
+    <hr class="menu-divider" />
+    <button
+      type="button"
+      role="menuitem"
+      class="danger-item"
+      (click)="onCloseSession(user)"
+    >
+      ✕ Cerrar sesión
+    </button>
+  }
+</div>

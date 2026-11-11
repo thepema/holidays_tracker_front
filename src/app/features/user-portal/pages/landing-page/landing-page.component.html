@@ -1,0 +1,161 @@
+<main class="landing-page">
+  <div class="landing-card">
+    <!-- Cabecera de marca -->
+    <header class="card-brand">
+      <div class="brand-logo">
+        <span class="brand-mark">h</span>
+        <span class="brand-text">holidays<span class="brand-light"> tracker</span></span>
+      </div>
+      <span class="badge-role">Portal de Usuario</span>
+    </header>
+
+    <!-- Introducción -->
+    <div class="landing-intro">
+      <h1 class="landing-title">Acceso a tu espacio de vacaciones</h1>
+      <p class="landing-subtitle">
+        Solicita una nueva sesión con tus datos registrados o restaura tu acceso utilizando tu token de recuperación.
+      </p>
+    </div>
+
+    <!-- Selector de modo (Solicitar sesión / Recuperar con token) -->
+    <div class="mode-tabs" role="tablist" aria-label="Opciones de acceso">
+      <button
+        type="button"
+        role="tab"
+        class="mode-tab"
+        [class.active]="activeMode() === 'solicitar'"
+        [attr.aria-selected]="activeMode() === 'solicitar'"
+        (click)="setMode('solicitar')"
+      >
+        <span>Solicitar sesión</span>
+      </button>
+      <button
+        type="button"
+        role="tab"
+        class="mode-tab"
+        [class.active]="activeMode() === 'recuperar'"
+        [attr.aria-selected]="activeMode() === 'recuperar'"
+        (click)="setMode('recuperar')"
+      >
+        <span>Recuperar con token</span>
+      </button>
+    </div>
+
+    <!-- MODO 1: FORMULARIO DE SOLICITUD DE SESIÓN -->
+    @if (activeMode() === 'solicitar') {
+      <section class="mode-section" aria-label="Formulario de solicitud de sesión">
+        @if (requestSuccess()) {
+          <div class="success-box" role="status">
+            <div class="success-icon-circle" aria-hidden="true">✓</div>
+            <h2 class="success-title">Solicitud de sesión registrada</h2>
+            <p class="success-description">
+              {{ requestSuccessMessage() }}
+            </p>
+          </div>
+        } @else {
+          <form class="landing-form" (ngSubmit)="submitSessionRequest()" novalidate>
+            <p class="form-helper">
+              Introduce tu <strong>nombre</strong> y <strong>correo electrónico</strong> corporativo para cruzarlos con la base de datos y registrar tu sesión como <em>solicitada</em>.
+            </p>
+
+            @if (requestError()) {
+              <div class="alert-error" role="alert">
+                <span class="alert-icon" aria-hidden="true">!</span>
+                <span>{{ requestError() }}</span>
+              </div>
+            }
+
+            <div class="field-group">
+              <label for="landing-nombre" class="field-label">Nombre</label>
+              <input
+                id="landing-nombre"
+                name="nombre"
+                type="text"
+                class="field-input"
+                placeholder="Ej. Laura o Laura Gómez"
+                autocomplete="name"
+                [ngModel]="requestNombre()"
+                (ngModelChange)="requestNombre.set($event)"
+                [disabled]="requestLoading()"
+                required
+              />
+            </div>
+
+            <div class="field-group">
+              <label for="landing-email" class="field-label">Correo electrónico</label>
+              <input
+                id="landing-email"
+                name="email"
+                type="email"
+                class="field-input"
+                placeholder="tu.correo@empresa.com"
+                autocomplete="email"
+                [ngModel]="requestEmail()"
+                (ngModelChange)="requestEmail.set($event)"
+                [disabled]="requestLoading()"
+                required
+              />
+            </div>
+
+            <button
+              type="submit"
+              class="btn-primary"
+              [disabled]="requestLoading() || !requestNombre().trim() || !requestEmail().trim()"
+            >
+              <span>{{ requestLoading() ? 'Verificando datos…' : 'Solicitar sesión' }}</span>
+              @if (!requestLoading()) {
+                <span aria-hidden="true">→</span>
+              }
+            </button>
+          </form>
+        }
+      </section>
+    }
+
+    <!-- MODO 2: RECUPERAR SESIÓN MEDIANTE TOKEN -->
+    @if (activeMode() === 'recuperar') {
+      <section class="mode-section" aria-label="Recuperar sesión con token">
+        <form class="landing-form" (ngSubmit)="submitRecoveryToken()" novalidate>
+          <p class="form-helper">
+            Introduce el <strong>token de recuperación</strong> que guardaste al activar tu invitación. Al verificarlo se te devolverá la cookie de sesión en este navegador.
+          </p>
+
+          @if (recoveryError()) {
+            <div class="alert-error" role="alert">
+              <span class="alert-icon" aria-hidden="true">!</span>
+              <span>{{ recoveryError() }}</span>
+            </div>
+          }
+
+          <div class="field-group">
+            <label for="landing-recovery-token" class="field-label">Token de recuperación</label>
+            <input
+              id="landing-recovery-token"
+              name="recoveryToken"
+              type="text"
+              class="field-input token-input"
+              placeholder="Pega aquí tu código o token de recuperación"
+              autocomplete="off"
+              spellcheck="false"
+              [ngModel]="recoveryToken()"
+              (ngModelChange)="recoveryToken.set($event)"
+              [disabled]="recoveryLoading()"
+              required
+            />
+          </div>
+
+          <button
+            type="submit"
+            class="btn-primary"
+            [disabled]="recoveryLoading() || !recoveryToken().trim()"
+          >
+            <span>{{ recoveryLoading() ? 'Verificando token…' : 'Recuperar sesión y entrar' }}</span>
+            @if (!recoveryLoading()) {
+              <span aria-hidden="true">→</span>
+            }
+          </button>
+        </form>
+      </section>
+    }
+  </div>
+</main>

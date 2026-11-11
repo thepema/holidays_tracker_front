@@ -1,0 +1,135 @@
+<div class="admin-shell">
+  <app-admin-header
+    [activeView]="activeView()"
+    [requestCount]="state.totalPendingAndRequestedCount()"
+    [loading]="state.loading()"
+    (viewChange)="activeView.set($event)"
+    (refreshData)="state.loadDashboard()"
+    (logoutClick)="logoutRequested.emit()"
+  />
+
+  <main class="workspace">
+    <section class="hero-bar">
+      <div class="hero-copy">
+        <p class="eyebrow">
+          {{ activeView() === 'dashboard' ? 'CONSOLA DE ADMINISTRACIÓN' : 'GESTIÓN DE ACCESOS' }}
+        </p>
+        <h1>
+          {{
+            activeView() === 'dashboard'
+              ? 'Resumen de vacaciones'
+              : 'Solicitudes pendientes'
+          }}
+        </h1>
+        <p class="subtitle">
+          {{
+            activeView() === 'dashboard'
+              ? 'Supervisa la planificación vacacional, gestiona altas y administra los accesos.'
+              : 'Usuarios que no tienen su sesión activada o han solicitado acceso.'
+          }}
+        </p>
+      </div>
+      <div class="hero-meta">
+        @if (activeView() === 'dashboard') {
+          <button
+            type="button"
+            class="btn-export-excel"
+            (click)="openExportExcelModal()"
+            title="Exportar vacaciones a Excel"
+          >
+            <span class="export-icon" aria-hidden="true">⬇</span>
+            <span>Exportar a Excel</span>
+          </button>
+        }
+        <span class="current-date">{{ currentDateFormatted() }}</span>
+      </div>
+    </section>
+
+    <app-alert-banner
+      [notice]="notifications.notice()"
+      [errorMessage]="notifications.errorMessage()"
+      (dismissNotice)="notifications.clearNotice()"
+      (dismissError)="notifications.clearError()"
+    />
+
+    @if (activeView() === 'dashboard') {
+      <div class="dashboard-layout">
+        <app-vacation-calendar
+          [users]="state.users()"
+          [vacations]="state.vacations()"
+        />
+
+        <app-team-panel
+          [users]="state.users()"
+          [pendingCount]="state.pendingUsers().length"
+          [userYearCounts]="state.userCountByYearMap()"
+          (createClick)="openCreateUserModal()"
+          (bulkInviteClick)="openConfirmBulkModal()"
+          (editUser)="openEditUserModal($event)"
+          (addVacations)="openVacationsModal($event)"
+          (resendInvite)="state.resendInvitation($event)"
+          (closeSession)="state.closeUserSession($event)"
+        />
+      </div>
+    } @else {
+      <app-session-requests
+        [pendingUsers]="state.pendingUsers()"
+        [requestedUsers]="state.requestedUsers()"
+        (resendInvite)="state.resendInvitation($event)"
+        (bulkInviteClick)="openConfirmBulkModal()"
+        (sendAllRequestedClick)="handleSendAllRequested()"
+      />
+    }
+
+    @if (state.loading()) {
+      <div class="loading-toast" role="status" aria-live="polite">
+        <span class="spinner"></span>
+        <span>Sincronizando datos con el servidor…</span>
+      </div>
+    }
+  </main>
+
+  <footer class="workspace-footer">
+    <div class="footer-inner">
+      <span class="footer-brand">HOLIDAYS TRACKER · CONSOLA DE ADMINISTRACIÓN</span>
+      <span>Gestión de vacaciones</span>
+    </div>
+  </footer>
+</div>
+
+@if (activeModal() === 'create' || activeModal() === 'edit') {
+  <app-user-form-modal
+    [mode]="activeModal() === 'edit' ? 'edit' : 'create'"
+    [initialUser]="selectedUserForModal()"
+    [saving]="state.saving()"
+    (save)="handleSaveUser($event)"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'vacations' && selectedUserForModal(); as targetUser) {
+  <app-vacation-modal
+    [user]="targetUser"
+    [saving]="state.saving()"
+    (saveDates)="handleSaveVacations($event)"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'confirm-bulk') {
+  <app-confirm-bulk-modal
+    [pendingCount]="state.pendingUsers().length"
+    [saving]="state.saving()"
+    (confirmSend)="handleConfirmBulkInvite()"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'export-excel') {
+  <app-export-excel-modal
+    [exporting]="state.exporting()"
+    [availableYears]="state.availableVacationYears()"
+    (exportExcel)="handleExportExcel($event)"
+    (cancel)="closeModal()"
+  />
+}

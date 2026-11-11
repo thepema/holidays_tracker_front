@@ -1,0 +1,55 @@
+<app-modal-shell
+  eyebrow="PLANIFICACIÓN DE AUSENCIAS"
+  title="Registrar días de vacaciones"
+  [subtitle]="
+    'Introduce las fechas para ' +
+    userFullName() +
+    ' con formato YYYY-MM-DD (separadas por comas o espacios).'
+  "
+  (closeModal)="cancel.emit()"
+>
+  <form class="vacation-form" (ngSubmit)="submitVacations()">
+    <div class="quick-picker">
+      <label for="quick-date-input">Selector rápido de fecha</label>
+      <div class="picker-row">
+        <input
+          id="quick-date-input"
+          type="date"
+          name="pickerDate"
+          [ngModel]="pickerDate()"
+          (ngModelChange)="pickerDate.set($event)"
+        />
+        <button
+          type="button"
+          class="btn-append"
+          [disabled]="!pickerDate()"
+          (click)="appendPickerDate()"
+        >
+          ＋ Añadir a la lista
+        </button>
+      </div>
+    </div>
+
+    <label class="field">
+      <div class="field-header">
+        <span>Listado de fechas (YYYY-MM-DD)</span>
+        <span class="dates-counter">{{ parsedDatesCount() }} fechas válidas</span>
+      </div>
+      <textarea
+        name="vacationDates"
+        rows="4"
+        [ngModel]="vacationDates()"
+        (ngModelChange)="vacationDates.set($event)"
+        placeholder="2026-08-03, 2026-08-04, 2026-08-05"
+        required
+      ></textarea>
+    </label>
+
+    <div class="form-actions">
+      <button type="button" class="btn-secondary" (click)="cancel.emit()">Cancelar</button>
+      <button type="submit" class="btn-primary" [disabled]="saving() || !vacationDates().trim()">
+        {{ saving() ? 'Guardando…' : 'Guardar días de vacaciones' }}
+      </button>
+    </div>
+  </form>
+</app-modal-shell>
