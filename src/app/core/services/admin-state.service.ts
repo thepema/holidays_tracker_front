@@ -8,6 +8,11 @@ import {
   normalizeUser,
 } from '../models/user.model';
 import { VacationDay, normalizeVacationEntry } from '../models/vacation.model';
+import {
+  VacationExcelRow,
+  downloadVacationsExcel,
+  getMonthLabel,
+} from '../utils/excel-export';
 import { asRecord, extractArray, extractErrorMessage } from '../utils/http-helpers';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
@@ -25,6 +30,18 @@ export class AdminStateService {
   readonly selectedUserIds = signal<number[]>([]);
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
+  readonly exporting = signal<boolean>(false);
+
+  readonly availableVacationYears = computed<number[]>(() => {
+    const years = new Set<number>();
+    for (const vac of this.vacations()) {
+      const year = Number(vac.fecha.slice(0, 4));
+      if (Number.isFinite(year) && year > 1900) {
+        years.add(year);
+      }
+    }
+    return [...years].sort((a, b) => b - a);
+  });
 
   readonly requestedUsers = computed<AdminUser[]>(() =>
     this.rawUsers().filter((user) => isUserRequested(user))
@@ -89,6 +106,7 @@ export class AdminStateService {
     this.selectedUserIds.set([]);
     this.loading.set(false);
     this.saving.set(false);
+    this.exporting.set(false);
     this.notifications.clearAll();
   }
 
@@ -144,6 +162,7 @@ export class AdminStateService {
         const parsedPending = extractArray(value, ['usuarios', 'users', 'data'])
           .map((item) => normalizeUser(item))
           .filter((user): user is AdminUser => user !== null)
+          .filter((user) => !isUserRequested(user))
           .map((user) => ({ ...user, sesionActiva: false }));
 
         this.pendingUsers.set(parsedPending);
@@ -358,6 +377,117 @@ export class AdminStateService {
       error: (error: unknown) => {
         this.notifications.showError(
           extractErrorMessage(error, 'No se pudo cerrar la sesión.')
+        );
+      },
+    });
+  }
+
+  exportVacationsToExcel(
+    month: number,
+    year: number,
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    if (!token) {
+      return;
+    }
+
+    this.exporting.set(true);
+    this.notifications.clearError();
+
+    forkJoin({
+      usersRes: this.api.getUsers(token),
+      vacationsRes: this.api.getVacations(token),
+    }).subscribe({
+      next: ({ usersRes, vacationsRes }) => {
+        const parsedUsers = extractArray(usersRes, ['usuarios', 'users', 'data'])
+          .map((item) => normalizeUser(item))
+          .filter((user): user is AdminUser => user !== null);
+
+        const parsedVacations = extractArray(vacationsRes, [
+          'vacaciones',
+          'holidays',
+          'data',
+          'items',
+          'rows',
+          'results',
+        ]).flatMap((item) => normalizeVacationEntry(item));
+
+        this.rawUsers.set(parsedUsers);
+        this.vacations.set(parsedVacations);
+
+        const userById = new Map<number, AdminUser>();
+        const userByName = new Map<string, AdminUser>();
+        for (const user of parsedUsers) {
+          userById.set(user.id, user);
+          const fullName = getUserDisplayName(user).toLowerCase();
+          if (fullName) {
+            userByName.set(fullName, user);
+          }
+        }
+
+        const monthPrefix = `${year}-${String(month).padStart(2, '0')}-`;
+        const seenKeys = new Set<string>();
+        const rows: VacationExcelRow[] = [];
+
+        for (const vac of parsedVacations) {
+          if (!vac.fecha || !vac.fecha.startsWith(monthPrefix)) {
+            continue;
+          }
+
+          const vacFullNameKey = `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`
+            .trim()
+            .toLowerCase();
+          const matchedUser =
+            userById.get(vac.usuarioId) ??
+            (vacFullNameKey ? userByName.get(vacFullNameKey) : undefined);
+
+          const resolvedUserId = matchedUser?.id ?? vac.usuarioId;
+          const uniqueKey = `${resolvedUserId}|${vac.fecha}`;
+          if (seenKeys.has(uniqueKey)) {
+            continue;
+          }
+          seenKeys.add(uniqueKey);
+
+          const nombre =
+            (matchedUser ? getUserDisplayName(matchedUser) : '') ||
+            `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim() ||
+            `Usuario #${resolvedUserId}`;
+          const correo = (matchedUser?.email || vac.email || '').trim();
+
+          rows.push({
+            nombre,
+            correo,
+            fecha: vac.fecha,
+          });
+        }
+
+        rows.sort((a, b) => {
+          const byDate = a.fecha.localeCompare(b.fecha);
+          if (byDate !== 0) {
+            return byDate;
+          }
+          return a.nombre.localeCompare(b.nombre, 'es');
+        });
+
+        downloadVacationsExcel(rows, month, year);
+        this.exporting.set(false);
+
+        const monthName = getMonthLabel(month);
+        this.notifications.showNotice(
+          rows.length > 0
+            ? `Excel de ${monthName} ${year} descargado (${rows.length} ${rows.length === 1 ? 'día exportado' : 'días exportados'}).`
+            : `Excel de ${monthName} ${year} descargado (sin días de vacaciones registrados en ese mes).`
+        );
+        onSuccess?.();
+      },
+      error: (error: unknown) => {
+        this.exporting.set(false);
+        this.notifications.showError(
+          extractErrorMessage(
+            error,
+            'No se pudieron obtener las vacaciones para exportar el Excel.'
+          )
         );
       },
     });

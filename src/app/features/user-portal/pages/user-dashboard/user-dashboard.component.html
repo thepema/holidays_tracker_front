@@ -38,23 +38,25 @@
     </div>
   </header>
 
-  <main class="user-main">
-    <!-- Banner de notificaciones -->
+  <!-- Capa flotante para notificaciones (evita saltos de layout en la página) -->
+  <div class="floating-alerts-layer">
     <app-alert-banner
       [notice]="notifications.notice()"
       [errorMessage]="notifications.errorMessage()"
       (dismissNotice)="notifications.clearNotice()"
       (dismissError)="notifications.clearError()"
     />
+  </div>
 
-    <!-- Banner activo cuando se está modificando un día ya pedido -->
-    @if (editingVacation(); as editing) {
-      <section class="editing-mode-banner" role="status" aria-live="polite">
+  <!-- Barra flotante inferior cuando se está modificando un día ya pedido (sin empujar el calendario) -->
+  @if (editingVacation(); as editing) {
+    <div class="floating-editing-bar" role="status" aria-live="polite">
+      <div class="editing-banner-inner">
         <div class="editing-banner-info">
           <span class="editing-badge">Modo modificación</span>
           <p class="editing-banner-text">
             Cambiando el día <strong>{{ editing.formattedDate }}</strong> ({{ editing.fecha }}).
-            Haz clic en la nueva fecha directamente en el calendario o selecciónala a continuación:
+            Pulsa la nueva fecha en el calendario o elígela aquí:
           </p>
         </div>
         <div class="editing-banner-controls">
@@ -82,89 +84,125 @@
             Cancelar
           </button>
         </div>
-      </section>
-    }
+      </div>
+    </div>
+  }
 
-    <!-- Grid Principal: Carrousel de Calendarios (Izquierda) + Listas de Vacaciones (Derecha) -->
-    <div class="workspace-grid">
-      <!-- COLUMNA IZQUIERDA: CARROUSEL DE CALENDARIOS -->
-      <section class="carousel-card" aria-label="Carrousel de calendarios de vacaciones">
-        <header class="carousel-header">
-          <div class="carousel-copy">
-            <p class="eyebrow">SELECCIÓN DE VACACIONES</p>
-            <h2>Carrousel de calendarios</h2>
-            <p class="subtitle">
-              Haz <strong>clic individual</strong> para elegir o quitar un día, o
-              <strong>mantén presionado el clic y arrastra hacia delante</strong> para elegir varios días en conjunto (excluyendo fines de semana automáticamente).
-            </p>
+  <main class="user-main">
+    <!-- ===================================================================== -->
+    <!-- SECCIÓN SUPERIOR ABIERTA: PANTALLAS DEL CALENDARIO DE VACACIONES       -->
+    <!-- ===================================================================== -->
+    <section class="carousel-showcase" aria-label="Calendario de vacaciones">
+      <!-- Cabecera abierta y barra de atajos rápidos -->
+      <header class="carousel-open-header">
+        <div class="carousel-copy">
+          <p class="eyebrow">SELECCIÓN DE VACACIONES</p>
+          <h2>Calendario de vacaciones</h2>
+          <p class="subtitle">
+            Haz <strong>clic individual</strong> para elegir o quitar un día, o
+            <strong>mantén pulsado medio segundo y arrastra hacia delante</strong> para seleccionar varios días hábiles seguidos (sin fines de semana).
+          </p>
+        </div>
+
+        <div class="carousel-shortcuts-toolbar" role="toolbar" aria-label="Atajos del calendario">
+          <!-- Atajo: volver al mes actual -->
+          <button
+            type="button"
+            class="btn-shortcut"
+            [class.is-current]="activeCarouselIndex() === 0"
+            (click)="goToCurrentMonth()"
+            title="Ir al mes actual (Inicio)"
+          >
+            <span class="shortcut-dot"></span>
+            <span>Mes actual</span>
+          </button>
+
+          <!-- Atajo: saltar al mes con días en selección -->
+          @if (firstSelectedMonthIndex() !== null) {
+            <button
+              type="button"
+              class="btn-shortcut highlight"
+              (click)="goToFirstSelectedMonth()"
+              title="Saltar al mes donde tienes días seleccionados"
+            >
+              <span>Ver selección ({{ pendingSelectedList().length }})</span>
+            </button>
+          }
+
+          <!-- Selector de pantallas simultáneas (1 o 2 meses) -->
+          <div class="view-mode-switch" role="group" aria-label="Meses visibles">
+            <button
+              type="button"
+              class="btn-view-mode"
+              [class.active]="visibleMonthsCount() === 1"
+              (click)="toggleVisibleMonthsCount(1)"
+            >
+              1 mes
+            </button>
+            @if (carouselMonths().length > 1) {
+              <button
+                type="button"
+                class="btn-view-mode hide-mobile"
+                [class.active]="visibleMonthsCount() === 2"
+                (click)="toggleVisibleMonthsCount(2)"
+              >
+                2 meses
+              </button>
+            }
           </div>
 
-          <div class="carousel-top-controls">
-            <div class="view-mode-switch" role="group" aria-label="Meses visibles">
-              <button
-                type="button"
-                class="btn-view-mode"
-                [class.active]="visibleMonthsCount() === 1"
-                (click)="toggleVisibleMonthsCount(1)"
-              >
-                1 mes
-              </button>
-              @if (carouselMonths().length > 1) {
-                <button
-                  type="button"
-                  class="btn-view-mode hide-mobile"
-                  [class.active]="visibleMonthsCount() === 2"
-                  (click)="toggleVisibleMonthsCount(2)"
-                >
-                  2 meses
-                </button>
-              }
-            </div>
-
-            <div class="carousel-arrows">
-              <button
-                type="button"
-                class="btn-carousel-nav"
-                [disabled]="!canGoPrevMonth()"
-                (click)="prevCarouselMonth()"
-                aria-label="Mes anterior del carrousel"
-                title="Mes anterior"
-              >
-                ‹
-              </button>
-              <span class="carousel-position">
-                {{ activeCarouselIndex() + 1 }}
-                @if (visibleMonthsCount() === 2 && visibleCarouselMonths().length === 2) {
-                  –{{ activeCarouselIndex() + 2 }}
-                }
-                de {{ carouselMonths().length }}
+          <!-- Atajos de cambio de mes anterior / siguiente -->
+          <div class="month-step-controls">
+            <button
+              type="button"
+              class="btn-month-step"
+              [disabled]="!canGoPrevMonth()"
+              (click)="prevCarouselMonth()"
+              aria-label="Mes anterior"
+              title="Mes anterior (Flecha izquierda ←)"
+            >
+              <span class="step-arrow">‹</span>
+              <span class="step-label">
+                {{ prevMonthSheet()?.shortTitle || 'Anterior' }}
               </span>
-              <button
-                type="button"
-                class="btn-carousel-nav"
-                [disabled]="!canGoNextMonth()"
-                (click)="nextCarouselMonth()"
-                aria-label="Mes siguiente del carrousel"
-                title="Mes siguiente"
-              >
-                ›
-              </button>
-            </div>
-          </div>
-        </header>
+            </button>
 
-        <!-- Barra de píldoras de meses del carrousel -->
-        <nav class="month-pills-bar" aria-label="Meses disponibles en el carrousel">
+            <span class="carousel-position-chip">
+              {{ activeCarouselIndex() + 1 }}
+              @if (visibleMonthsCount() === 2 && visibleCarouselMonths().length === 2) {
+                –{{ activeCarouselIndex() + 2 }}
+              }
+              / {{ carouselMonths().length }}
+            </span>
+
+            <button
+              type="button"
+              class="btn-month-step"
+              [disabled]="!canGoNextMonth()"
+              (click)="nextCarouselMonth()"
+              aria-label="Mes siguiente"
+              title="Mes siguiente (Flecha derecha →)"
+            >
+              <span class="step-label">
+                {{ nextMonthSheet()?.shortTitle || 'Siguiente' }}
+              </span>
+              <span class="step-arrow">›</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Barra de atajos directos por mes + estado en vivo de altura fija (sin saltos) -->
+      <div class="month-shortcuts-row">
+        <nav class="month-pills-bar" aria-label="Atajos directos por mes">
           @for (sheet of carouselMonths(); track sheet.key) {
             <button
               type="button"
               class="month-pill"
-              [class.active]="
-                sheet.index >= activeCarouselIndex() &&
-                sheet.index < activeCarouselIndex() + visibleMonthsCount()
-              "
+              [class.active]="isSlideActive(sheet.index)"
               (click)="goToCarouselMonth(sheet.index)"
             >
+              <span class="pill-index">{{ sheet.index + 1 }}</span>
               <span class="pill-name">{{ sheet.shortTitle }}</span>
               @if (sheet.requestedCount > 0) {
                 <span class="pill-badge requested" title="Días ya pedidos en este mes">
@@ -180,161 +218,290 @@
           }
         </nav>
 
-        <!-- Indicador en vivo cuando se mantiene presionado el click -->
-        @if (isDragging() && dragPreviewDatesSet().size > 0) {
-          <div class="drag-status-bar" role="status" aria-live="polite">
-            <span class="drag-pulse"></span>
-            <span>
-              Seleccionando en bloque hacia delante (sin fines de semana):
-              <strong>{{ dragPreviewDatesSet().size }}</strong>
-              {{ dragPreviewDatesSet().size === 1 ? 'día hábil' : 'días hábiles' }}
-            </span>
-          </div>
-        }
+        <!-- Slot de altura fija para estado de arrastre o sugerencia de teclado -->
+        <div class="status-slot" aria-live="polite">
+          @if (isDragging() && dragPreviewDatesSet().size > 0) {
+            <div class="drag-status-inline" role="status">
+              <span class="drag-pulse"></span>
+              <span>
+                Arrastrando bloque:
+                <strong>{{ dragPreviewDatesSet().size }}</strong>
+                {{ dragPreviewDatesSet().size === 1 ? 'día hábil' : 'días hábiles' }}
+              </span>
+            </div>
+          }
+        </div>
+      </div>
 
-        <!-- Contenedor de hojas de calendario visibles en el carrousel -->
-        <div
-          class="carousel-Viewport"
-          [class.two-columns]="visibleMonthsCount() === 2 && visibleCarouselMonths().length === 2"
+      <!-- ESCENARIO DE PANTALLAS DE MESES -->
+      <div
+        class="carousel-stage"
+        [class.mode-single]="visibleMonthsCount() === 1"
+        [class.mode-double]="visibleMonthsCount() === 2"
+      >
+        <!-- Flecha lateral izquierda (rediseñada circular y fuera de los días) -->
+        <button
+          type="button"
+          class="stage-side-arrow left"
+          [disabled]="!canGoPrevMonth()"
+          (click)="prevCarouselMonth()"
+          aria-label="Ir al mes anterior"
+          [title]="prevMonthSheet() ? 'Ir a ' + prevMonthSheet()!.title : 'Mes anterior'"
         >
-          @for (sheet of visibleCarouselMonths(); track sheet.key) {
-            <article class="month-sheet">
-              <header class="month-sheet-header">
-                <h3 class="month-sheet-title">{{ sheet.title }}</h3>
-                <div class="month-sheet-counters">
-                  @if (sheet.requestedCount > 0) {
-                    <span class="sheet-chip requested">
-                      {{ sheet.requestedCount }} {{ sheet.requestedCount === 1 ? 'pedido' : 'pedidos' }}
+          <span class="arrow-glyph">‹</span>
+        </button>
+
+        <!-- Pista deslizante de pantallas -->
+        <div class="carousel-track-window">
+          <div
+            class="carousel-track"
+            [style.--active-index]="activeCarouselIndex()"
+            [style.--visible-count]="visibleMonthsCount()"
+          >
+            @for (sheet of carouselMonths(); track sheet.key) {
+              <article
+                class="month-screen"
+                [class.is-active]="isSlideActive(sheet.index)"
+                [class.is-prev-peek]="isSlidePrevPeek(sheet.index)"
+                [class.is-next-peek]="isSlideNextPeek(sheet.index)"
+                [class.is-far]="
+                  !isSlideActive(sheet.index) &&
+                  !isSlidePrevPeek(sheet.index) &&
+                  !isSlideNextPeek(sheet.index)
+                "
+                (click)="onScreenCardClick(sheet, $event)"
+              >
+                <header class="month-screen-header">
+                  <div class="month-screen-title-group">
+                    <span class="screen-step-badge">Mes {{ sheet.index + 1 }}</span>
+                    <h3 class="month-screen-title">{{ sheet.title }}</h3>
+                  </div>
+
+                  <div class="month-screen-counters">
+                    <span class="sheet-chip available" title="Días laborables libres en este mes">
+                      {{ sheet.availableWeekdaysCount }}
+                      <span class="chip-label-full">hábiles libres</span>
+                      <span class="chip-label-compact">libres</span>
                     </span>
+                    @if (sheet.requestedCount > 0) {
+                      <span class="sheet-chip requested">
+                        {{ sheet.requestedCount }}
+                        {{ sheet.requestedCount === 1 ? 'pedido' : 'pedidos' }}
+                      </span>
+                    }
+                    @if (sheet.selectedCount > 0) {
+                      <span class="sheet-chip selected">
+                        +{{ sheet.selectedCount }}
+                        <span class="chip-label-full">en selección</span>
+                        <span class="chip-label-compact">selec.</span>
+                      </span>
+                      <button
+                        type="button"
+                        class="btn-clear-month"
+                        (click)="clearMonthSelection(sheet.key, $event)"
+                        title="Quitar selección de este mes"
+                      >
+                        Limpiar
+                      </button>
+                    }
+                  </div>
+                </header>
+
+                <div class="calendar-grid">
+                  @for (dayName of weekDays; track dayName.full) {
+                    <div class="weekday-header">
+                      <span class="weekday-full">{{ dayName.full }}</span>
+                      <span class="weekday-short">{{ dayName.short }}</span>
+                    </div>
                   }
-                  @if (sheet.selectedCount > 0) {
-                    <span class="sheet-chip selected">
-                      {{ sheet.selectedCount }} {{ sheet.selectedCount === 1 ? 'en selección' : 'en selección' }}
-                    </span>
+
+                  @for (cell of sheet.cells; track $index) {
+                    @if (cell.date && cell.dateKey) {
+                      <div
+                        class="calendar-cell"
+                        [class.is-today]="cell.isToday"
+                        [class.is-past]="cell.isPast"
+                        [class.is-weekend]="cell.isWeekend"
+                        [class.is-requested]="cell.isRequested"
+                        [class.is-selected]="cell.isSelected"
+                        [class.is-drag-preview]="cell.isDragPreview"
+                        [class.is-editing-origin]="cell.isEditingOrigin"
+                        [class.is-editing-target]="cell.isEditingTarget"
+                        [class.is-interactive]="cell.canInteract && isSlideActive(sheet.index)"
+                        (mousedown)="onDayMouseDown(cell, sheet.index, $event)"
+                        (mouseenter)="onDayMouseEnter(cell)"
+                        [attr.aria-label]="
+                          'Día ' +
+                          cell.dayNumber +
+                          (cell.isRequested
+                            ? ' (Vacaciones ya pedidas)'
+                            : cell.isSelected
+                              ? ' (Seleccionado, pulsa de nuevo para quitar)'
+                              : '')
+                        "
+                      >
+                        <div class="cell-top">
+                          <span class="day-number">{{ cell.dayNumber }}</span>
+                          @if (cell.isToday) {
+                            <span class="today-tag">Hoy</span>
+                          }
+                        </div>
+
+                        <div class="cell-status">
+                          @if (cell.isEditingOrigin) {
+                            <span class="status-pill editing-origin" title="Modificando este día">
+                              <span class="status-icon">●</span>
+                              <span class="pill-label">Editando</span>
+                            </span>
+                          } @else if (cell.isEditingTarget) {
+                            <span class="status-pill editing-target" title="Nueva fecha elegida">
+                              <span class="status-icon">✓</span>
+                              <span class="pill-label">Nueva</span>
+                            </span>
+                          } @else if (cell.isRequested) {
+                            <span class="status-pill requested" title="Vacaciones ya solicitadas y aprobadas">
+                              <span class="status-icon">✓</span>
+                              <span class="pill-label">Pedido</span>
+                            </span>
+                          } @else if (cell.isDragPreview) {
+                            <span class="status-pill preview" title="Día en bloque de selección">
+                              <span class="status-icon">+</span>
+                              <span class="pill-label">Bloque</span>
+                            </span>
+                          } @else if (cell.isSelected) {
+                            <span class="status-pill selected" title="Seleccionado (clic de nuevo para quitar)">
+                              <span class="selected-label-default">
+                                <span class="status-icon">✓</span>
+                                <span class="pill-label">Elegido</span>
+                              </span>
+                              <span class="selected-label-hover">
+                                <span class="status-icon">✕</span>
+                                <span class="pill-label">Quitar</span>
+                              </span>
+                            </span>
+                          } @else if (cell.isWeekend) {
+                            <span class="weekend-label">
+                              <span class="weekend-full">Fin de sem.</span>
+                              <span class="weekend-short">F.S.</span>
+                            </span>
+                          }
+                        </div>
+                      </div>
+                    } @else {
+                      <div class="calendar-cell is-empty" aria-hidden="true"></div>
+                    }
                   }
                 </div>
-              </header>
 
-              <div class="calendar-grid">
-                @for (dayName of weekDays; track dayName.full) {
-                  <div class="weekday-header">
-                    <span class="weekday-full">{{ dayName.full }}</span>
-                    <span class="weekday-short">{{ dayName.short }}</span>
+                @if (!isSlideActive(sheet.index)) {
+                  <div class="peek-overlay" aria-hidden="true">
+                    <span class="peek-cta">Ir a {{ sheet.title }}</span>
                   </div>
                 }
+              </article>
+            }
+          </div>
+        </div>
 
-                @for (cell of sheet.cells; track $index) {
-                  @if (cell.date && cell.dateKey) {
-                    <div
-                      class="calendar-cell"
-                      [class.is-today]="cell.isToday"
-                      [class.is-past]="cell.isPast"
-                      [class.is-weekend]="cell.isWeekend"
-                      [class.is-requested]="cell.isRequested"
-                      [class.is-selected]="cell.isSelected"
-                      [class.is-drag-preview]="cell.isDragPreview"
-                      [class.is-editing-origin]="cell.isEditingOrigin"
-                      [class.is-editing-target]="cell.isEditingTarget"
-                      [class.is-interactive]="cell.canInteract"
-                      (mousedown)="onDayMouseDown(cell, $event)"
-                      (mouseenter)="onDayMouseEnter(cell)"
-                      [attr.aria-label]="
-                        'Día ' +
-                        cell.dayNumber +
-                        (cell.isRequested
-                          ? ' (Vacaciones ya pedidas)'
-                          : cell.isSelected
-                            ? ' (Seleccionado para enviar)'
-                            : '')
-                      "
-                    >
-                      <div class="cell-top">
-                        <span class="day-number">{{ cell.dayNumber }}</span>
-                        @if (cell.isToday) {
-                          <span class="today-tag">Hoy</span>
-                        }
-                      </div>
+        <!-- Flecha lateral derecha (rediseñada circular y fuera de los días) -->
+        <button
+          type="button"
+          class="stage-side-arrow right"
+          [disabled]="!canGoNextMonth()"
+          (click)="nextCarouselMonth()"
+          aria-label="Ir al mes siguiente"
+          [title]="nextMonthSheet() ? 'Ir a ' + nextMonthSheet()!.title : 'Mes siguiente'"
+        >
+          <span class="arrow-glyph">›</span>
+        </button>
+      </div>
 
-                      <div class="cell-status">
-                        @if (cell.isEditingOrigin) {
-                          <span class="status-pill editing-origin">Editando</span>
-                        } @else if (cell.isEditingTarget) {
-                          <span class="status-pill editing-target">Nueva fecha</span>
-                        } @else if (cell.isRequested) {
-                          <span class="status-pill requested">✓ Pedido</span>
-                        } @else if (cell.isDragPreview) {
-                          <span class="status-pill preview">+ Bloque</span>
-                        } @else if (cell.isSelected) {
-                          <span class="status-pill selected">Seleccionado</span>
-                        } @else if (cell.isWeekend) {
-                          <span class="weekend-label">Fin de sem.</span>
-                        }
-                      </div>
-                    </div>
-                  } @else {
-                    <div class="calendar-cell is-empty" aria-hidden="true"></div>
-                  }
-                }
-              </div>
-            </article>
+      <!-- Pie del calendario: indicadores de mes + leyenda -->
+      <footer class="carousel-footer-bar">
+        <div class="carousel-dots" role="tablist" aria-label="Indicadores de mes">
+          @for (sheet of carouselMonths(); track sheet.key) {
+            <button
+              type="button"
+              class="carousel-dot"
+              [class.active]="isSlideActive(sheet.index)"
+              [class.has-selection]="sheet.selectedCount > 0"
+              (click)="goToCarouselMonth(sheet.index)"
+              [attr.aria-label]="'Ir a ' + sheet.title"
+              [title]="sheet.title"
+            ></button>
           }
         </div>
 
-        <!-- Leyenda del calendario -->
-        <footer class="calendar-legend">
-          <div class="legend-items">
-            <span class="legend-item">
-              <span class="legend-swatch requested"></span>
-              <span>Día ya pedido (no duplicable)</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch selected"></span>
-              <span>Seleccionado para pedir</span>
-            </span>
-            <span class="legend-item">
-              <span class="legend-swatch weekend"></span>
-              <span>Fin de semana (omitido en arrastre)</span>
-            </span>
+        <div class="legend-items">
+          <span class="legend-item">
+            <span class="legend-swatch requested"></span>
+            <span>Día ya pedido (no duplicable)</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-swatch selected"></span>
+            <span>Seleccionado (clic de nuevo para quitar)</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-swatch weekend"></span>
+            <span>Fin de semana (omitido en arrastre)</span>
+          </span>
+        </div>
+      </footer>
+    </section>
+
+    <!-- ===================================================================== -->
+    <!-- SECCIÓN INFERIOR: BLOQUES DE NUEVA SOLICITUD E HISTORIAL Y GESTIÓN     -->
+    <!-- ===================================================================== -->
+    <section class="bottom-management-grid" aria-label="Bloques de nueva solicitud e historial y gestión">
+      <!-- BLOQUE 1: NUEVA SOLICITUD (DÍAS SELECCIONADOS PARA ENVIAR AL SERVIDOR) -->
+      <section class="management-card pending-card" aria-label="Días seleccionados para solicitar">
+        <header class="side-card-header">
+          <div>
+            <p class="eyebrow">NUEVA SOLICITUD</p>
+            <h3>Días seleccionados ({{ pendingSelectedList().length }})</h3>
           </div>
-        </footer>
-      </section>
+          @if (pendingSelectedList().length > 0) {
+            <button
+              type="button"
+              class="btn-link-clear"
+              [disabled]="savingVacations()"
+              (click)="clearPendingSelection()"
+            >
+              Limpiar todo
+            </button>
+          }
+        </header>
 
-      <!-- COLUMNA DERECHA: PANELES DE SELECCIÓN Y LISTA DE VACACIONES PEDIDAS -->
-      <aside class="side-column">
-        <!-- PANEL 1: DÍAS SELECCIONADOS PARA ENVIAR AL SERVIDOR -->
-        <section class="side-card pending-card" aria-label="Días seleccionados para solicitar">
-          <header class="side-card-header">
-            <div>
-              <p class="eyebrow">NUEVA SOLICITUD</p>
-              <h3>Días seleccionados ({{ pendingSelectedList().length }})</h3>
-            </div>
-            @if (pendingSelectedList().length > 0) {
-              <button
-                type="button"
-                class="btn-link-clear"
-                [disabled]="savingVacations()"
-                (click)="clearPendingSelection()"
-              >
-                Limpiar
-              </button>
-            }
-          </header>
+        <p class="side-card-subtitle">
+          Revisa los días marcados en el calendario antes de confirmar tu solicitud.
+        </p>
 
-          @if (pendingSelectedList().length === 0) {
-            <div class="empty-box">
-              <p class="empty-title">Ningún día seleccionado todavía</p>
-              <p class="empty-hint">
-                Selecciona días sueltos en el calendario o mantén presionado el clic arrastrando hacia delante para añadir un rango sin fines de semana.
-              </p>
-            </div>
-          } @else {
-            <ul class="selected-days-list">
-              @for (item of pendingSelectedList(); track item.dateKey) {
-                <li class="selected-day-row">
-                  <div class="selected-day-info">
-                    <span class="selected-day-weekday">{{ item.weekday }}</span>
-                    <strong class="selected-day-date">{{ item.formattedDate }}</strong>
-                  </div>
+        @if (pendingSelectedList().length === 0) {
+          <div class="empty-box">
+            <p class="empty-title">Ningún día seleccionado todavía</p>
+            <p class="empty-hint">
+              Haz clic en días sueltos del calendario o mantén pulsado medio segundo y arrastra hacia delante para añadir un rango sin fines de semana.
+            </p>
+          </div>
+        } @else {
+          <ul class="selected-days-list">
+            @for (item of pendingSelectedList(); track item.dateKey) {
+              <li class="selected-day-row">
+                <div class="selected-day-info">
+                  <span class="selected-day-weekday">{{ item.weekday }}</span>
+                  <strong class="selected-day-date">{{ item.formattedDate }}</strong>
+                </div>
+                <div class="selected-day-actions">
+                  @if (item.monthIndex !== null) {
+                    <button
+                      type="button"
+                      class="btn-locate-day"
+                      (click)="goToCarouselMonth(item.monthIndex)"
+                      title="Ver este mes en el calendario"
+                    >
+                      Ver mes
+                    </button>
+                  }
                   <button
                     type="button"
                     class="btn-remove-day"
@@ -345,175 +512,183 @@
                   >
                     ✕
                   </button>
-                </li>
-              }
-            </ul>
+                </div>
+              </li>
+            }
+          </ul>
 
-            <button
-              type="button"
-              class="btn-submit-vacations"
-              [disabled]="savingVacations() || pendingSelectedList().length === 0"
-              (click)="submitSelectedVacations()"
-            >
-              <span>
-                {{
-                  savingVacations()
-                    ? 'Guardando vacaciones…'
-                    : 'Enviar y guardar ' +
-                      pendingSelectedList().length +
-                      (pendingSelectedList().length === 1 ? ' día' : ' días')
-                }}
-              </span>
-              @if (!savingVacations()) {
-                <span aria-hidden="true">→</span>
-              }
-            </button>
-          }
-        </section>
+          <button
+            type="button"
+            class="btn-submit-vacations"
+            [disabled]="savingVacations() || pendingSelectedList().length === 0"
+            (click)="submitSelectedVacations()"
+          >
+            <span>
+              {{
+                savingVacations()
+                  ? 'Guardando vacaciones…'
+                  : 'Enviar y guardar ' +
+                    pendingSelectedList().length +
+                    (pendingSelectedList().length === 1 ? ' día' : ' días')
+              }}
+            </span>
+            @if (!savingVacations()) {
+              <span aria-hidden="true">→</span>
+            }
+          </button>
+        }
+      </section>
 
-        <!-- PANEL 2: LISTA DE DÍAS DE VACACIONES YA PEDIDOS -->
-        <section class="side-card requested-card" aria-label="Lista de días de vacaciones pedidos">
-          <header class="side-card-header">
-            <div>
-              <p class="eyebrow">HISTORIAL Y GESTIÓN</p>
-              <h3>Mis días de vacaciones pedidos ({{ requestedVacationItems().length }})</h3>
-            </div>
-          </header>
-
-          <p class="side-card-subtitle">
-            Los días cuya fecha aún no ha pasado se pueden modificar o cancelar.
-          </p>
-
-          <!-- Filtros de la lista -->
-          <div class="filter-pills" role="tablist" aria-label="Filtrar vacaciones pedidas">
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="requestedFilter() === 'todos'"
-              (click)="requestedFilter.set('todos')"
-            >
-              Todos ({{ requestedVacationItems().length }})
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="requestedFilter() === 'proximos'"
-              (click)="requestedFilter.set('proximos')"
-            >
-              Modificables ({{ upcomingRequestedCount() }})
-            </button>
-            <button
-              type="button"
-              class="filter-pill"
-              [class.active]="requestedFilter() === 'pasados'"
-              (click)="requestedFilter.set('pasados')"
-            >
-              Pasados ({{ pastRequestedCount() }})
-            </button>
+      <!-- BLOQUE 2: HISTORIAL Y GESTIÓN (LISTA DE DÍAS DE VACACIONES YA PEDIDOS) -->
+      <section class="management-card requested-card" aria-label="Lista de días de vacaciones pedidos">
+        <header class="side-card-header">
+          <div>
+            <p class="eyebrow">HISTORIAL Y GESTIÓN</p>
+            <h3>Mis días de vacaciones pedidos ({{ requestedVacationItems().length }})</h3>
           </div>
+        </header>
 
-          @if (loading() && requestedVacationItems().length === 0) {
-            <div class="empty-box">
-              <p class="empty-title">Cargando tus días de vacaciones…</p>
-            </div>
-          } @else if (filteredRequestedItems().length === 0) {
-            <div class="empty-box">
-              <p class="empty-title">No hay días de vacaciones en esta vista</p>
-              <p class="empty-hint">
-                Los días que guardes desde el calendario aparecerán listados aquí.
-              </p>
-            </div>
-          } @else {
-            <ul class="requested-days-list">
-              @for (item of filteredRequestedItems(); track item.fecha) {
-                <li
-                  class="requested-day-card"
-                  [class.is-past]="item.isPast"
-                  [class.is-editing]="editingVacation()?.fecha === item.fecha"
-                >
-                  <div class="requested-day-top">
-                    <div class="requested-day-main">
-                      <div class="requested-day-badges">
-                        <span class="weekday-tag">{{ item.weekdayName }}</span>
-                        @if (item.canModify) {
-                          <span class="state-tag modifiable">
-                            {{ item.isToday ? 'Hoy · Modificable' : 'Próximo · Modificable' }}
-                          </span>
-                        } @else {
-                          <span class="state-tag past">Fecha pasada</span>
-                        }
-                      </div>
-                      <strong class="requested-date-title">{{ item.formattedDate }}</strong>
-                      <span class="requested-date-iso">{{ item.fecha }}</span>
+        <p class="side-card-subtitle">
+          Los días cuya fecha aún no ha pasado se pueden localizar en el calendario, modificar o cancelar.
+        </p>
+
+        <!-- Filtros de la lista -->
+        <div class="filter-pills" role="tablist" aria-label="Filtrar vacaciones pedidas">
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="requestedFilter() === 'todos'"
+            (click)="requestedFilter.set('todos')"
+          >
+            Todos ({{ requestedVacationItems().length }})
+          </button>
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="requestedFilter() === 'proximos'"
+            (click)="requestedFilter.set('proximos')"
+          >
+            Modificables ({{ upcomingRequestedCount() }})
+          </button>
+          <button
+            type="button"
+            class="filter-pill"
+            [class.active]="requestedFilter() === 'pasados'"
+            (click)="requestedFilter.set('pasados')"
+          >
+            Pasados ({{ pastRequestedCount() }})
+          </button>
+        </div>
+
+        @if (loading() && requestedVacationItems().length === 0) {
+          <div class="empty-box">
+            <p class="empty-title">Cargando tus días de vacaciones…</p>
+          </div>
+        } @else if (filteredRequestedItems().length === 0) {
+          <div class="empty-box">
+            <p class="empty-title">No hay días de vacaciones en esta vista</p>
+            <p class="empty-hint">
+              Los días que guardes desde el calendario aparecerán listados aquí.
+            </p>
+          </div>
+        } @else {
+          <ul class="requested-days-list">
+            @for (item of filteredRequestedItems(); track item.fecha) {
+              <li
+                class="requested-day-card"
+                [class.is-past]="item.isPast"
+                [class.is-editing]="editingVacation()?.fecha === item.fecha"
+              >
+                <div class="requested-day-top">
+                  <div class="requested-day-main">
+                    <div class="requested-day-badges">
+                      <span class="weekday-tag">{{ item.weekdayName }}</span>
+                      @if (item.canModify) {
+                        <span class="state-tag modifiable">
+                          {{ item.isToday ? 'Hoy · Modificable' : 'Próximo · Modificable' }}
+                        </span>
+                      } @else {
+                        <span class="state-tag past">Fecha pasada</span>
+                      }
                     </div>
-
-                    @if (item.canModify) {
-                      <div class="requested-day-actions">
-                        <button
-                          type="button"
-                          class="btn-modify-item"
-                          [class.active]="editingVacation()?.fecha === item.fecha"
-                          [disabled]="modifyingLoading() || deletingId() === item.id"
-                          (click)="startEditVacation(item)"
-                        >
-                          Modificar
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-delete-item"
-                          [disabled]="modifyingLoading() || deletingId() === item.id"
-                          (click)="deleteRequestedVacation(item)"
-                          title="Cancelar este día de vacaciones"
-                        >
-                          {{ deletingId() === item.id ? '…' : 'Quitar' }}
-                        </button>
-                      </div>
-                    }
+                    <strong class="requested-date-title">{{ item.formattedDate }}</strong>
+                    <span class="requested-date-iso">{{ item.fecha }}</span>
                   </div>
 
-                  <!-- Editor inline cuando este día está en modo modificación -->
-                  @if (editingVacation()?.fecha === item.fecha) {
-                    <div class="inline-edit-box">
-                      <label class="inline-edit-label">
-                        Nueva fecha (o pulsa en un día libre del calendario):
-                      </label>
-                      <div class="inline-edit-row">
-                        <input
-                          type="date"
-                          class="inline-date-input"
-                          [min]="todayKey()"
-                          [ngModel]="editingNewDate()"
-                          (ngModelChange)="editingNewDate.set($event)"
-                        />
-                        <button
-                          type="button"
-                          class="btn-inline-save"
-                          [disabled]="
-                            modifyingLoading() ||
-                            !editingNewDate() ||
-                            editingNewDate() === item.fecha
-                          "
-                          (click)="saveModifiedVacation()"
-                        >
-                          {{ modifyingLoading() ? 'Guardando…' : 'Guardar' }}
-                        </button>
-                        <button
-                          type="button"
-                          class="btn-inline-cancel"
-                          [disabled]="modifyingLoading()"
-                          (click)="cancelEditVacation()"
-                        >
-                          Cancelar
-                        </button>
-                      </div>
+                  @if (item.canModify) {
+                    <div class="requested-day-actions">
+                      <button
+                        type="button"
+                        class="btn-locate-day"
+                        (click)="goToDateMonth(item.fecha)"
+                        title="Ir al mes de este día en el calendario"
+                      >
+                        Ver en mes
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-modify-item"
+                        [class.active]="editingVacation()?.fecha === item.fecha"
+                        [disabled]="modifyingLoading() || deletingId() === item.id"
+                        (click)="startEditVacation(item)"
+                      >
+                        Modificar
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-delete-item"
+                        [disabled]="modifyingLoading() || deletingId() === item.id"
+                        (click)="deleteRequestedVacation(item)"
+                        title="Cancelar este día de vacaciones"
+                      >
+                        {{ deletingId() === item.id ? '…' : 'Quitar' }}
+                      </button>
                     </div>
                   }
-                </li>
-              }
-            </ul>
-          }
-        </section>
-      </aside>
-    </div>
+                </div>
+
+                <!-- Editor inline cuando este día está en modo modificación -->
+                @if (editingVacation()?.fecha === item.fecha) {
+                  <div class="inline-edit-box">
+                    <label class="inline-edit-label">
+                      Nueva fecha (o pulsa en un día libre del calendario superior):
+                    </label>
+                    <div class="inline-edit-row">
+                      <input
+                        type="date"
+                        class="inline-date-input"
+                        [min]="todayKey()"
+                        [ngModel]="editingNewDate()"
+                        (ngModelChange)="editingNewDate.set($event)"
+                      />
+                      <button
+                        type="button"
+                        class="btn-inline-save"
+                        [disabled]="
+                          modifyingLoading() ||
+                          !editingNewDate() ||
+                          editingNewDate() === item.fecha
+                        "
+                        (click)="saveModifiedVacation()"
+                      >
+                        {{ modifyingLoading() ? 'Guardando…' : 'Guardar' }}
+                      </button>
+                      <button
+                        type="button"
+                        class="btn-inline-cancel"
+                        [disabled]="modifyingLoading()"
+                        (click)="cancelEditVacation()"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </section>
   </main>
 </div>

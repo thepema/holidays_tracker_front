@@ -29,11 +29,10 @@
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--status-success); }
 .session-status.is-pending { color: var(--status-warning); }
 .session-status.is-pending .status-dot { background: var(--status-warning); }
-.user-actions { position: relative; }
-.user-actions summary { list-style: none; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--text-secondary); font-size: 16px; font-weight: 700; cursor: pointer; }
-.user-actions summary:hover { background: var(--accent-soft); color: var(--accent-primary); }
-.user-actions summary::-webkit-details-marker { display: none; }
-.action-dropdown { position: absolute; z-index: 15; top: 32px; right: 0; min-width: 175px; padding: 6px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-dropdown); display: grid; gap: 2px; }
+.actions-trigger { border: 0; background: transparent; width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--text-secondary); font-size: 16px; font-weight: 700; cursor: pointer; }
+.actions-trigger:hover { background: var(--accent-soft); color: var(--accent-primary); }
+.action-dropdown { display: none; position: fixed; z-index: 1000; min-width: 175px; padding: 6px; background: var(--bg-input); border: 1px solid var(--border-strong); border-radius: 10px; box-shadow: var(--shadow-dropdown); gap: 2px; }
+.action-dropdown.is-open { display: grid; }
 .action-dropdown button { padding: 8px 10px; border: 0; border-radius: 6px; background: transparent; color: var(--text-primary); text-align: left; font-size: 12px; font-weight: 500; cursor: pointer; }
 .action-dropdown button:hover { background: var(--accent-subtle); color: var(--accent-primary); }
 .action-dropdown button.danger-item { color: var(--status-danger); }

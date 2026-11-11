@@ -1,10 +1,17 @@
 import {
+  AfterViewInit,
   ChangeDetectionStrategy,
+  ChangeDetectorRef,
   Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
   computed,
+  inject,
   input,
   output,
   signal,
+  viewChild,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
@@ -12,6 +19,7 @@ import {
   getUserDisplayName,
   getUserInitials,
   getVacationTypeLabel,
+  hasActiveSession,
   isUserPending,
 } from '../../../../core/models/user.model';
 import { UserColorPalette, getUserColor } from '../../../../core/models/vacation.model';
@@ -24,7 +32,7 @@ import { UserColorPalette, getUserColor } from '../../../../core/models/vacation
   styleUrl: './team-panel.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class TeamPanelComponent {
+export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   readonly users = input.required<AdminUser[]>();
   readonly pendingCount = input.required<number>();
   readonly userYearCounts = input.required<Map<number, number>>();
@@ -37,6 +45,16 @@ export class TeamPanelComponent {
   readonly closeSession = output<AdminUser>();
 
   protected readonly searchTerm = signal<string>('');
+  protected readonly menuUser = signal<AdminUser | null>(null);
+  protected readonly menuPos = signal<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  private readonly popup = viewChild.required<ElementRef<HTMLElement>>('popup');
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly scrollListener = (e: Event): void => {
+    if (!this.popup().nativeElement.contains(e.target as Node)) {
+      this.closeMenu();
+    }
+  };
 
   protected readonly filteredUsers = computed<AdminUser[]>(() => {
     const query = this.searchTerm().trim().toLowerCase();
@@ -78,8 +96,94 @@ export class TeamPanelComponent {
     return getVacationTypeLabel(value);
   }
 
-  protected triggerAction(detailsEl: HTMLDetailsElement, callback: () => void): void {
-    detailsEl.open = false;
+  protected hasActiveSession(user: AdminUser): boolean {
+    return hasActiveSession(user);
+  }
+
+  protected toggleMenu(event: MouseEvent, user: AdminUser): void {
+    event.stopPropagation();
+    if (this.menuUser()?.id === user.id) {
+      this.closeMenu();
+      return;
+    }
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    this.menuUser.set(user);
+    this.menuPos.set({ x: rect.right, y: rect.bottom + 4 });
+    // Tras renderizar, centrar/ajustar con las dimensiones reales del popup.
+    setTimeout(() => this.placeMenu(rect));
+  }
+
+  protected runAction(callback: () => void): void {
+    this.closeMenu();
     callback();
+  }
+
+  protected onEditUser(user: AdminUser): void {
+    this.closeMenu();
+    this.editUser.emit(user);
+  }
+
+  protected onAddVacations(user: AdminUser): void {
+    this.closeMenu();
+    this.addVacations.emit(user);
+  }
+
+  protected onResendInvite(user: AdminUser): void {
+    this.closeMenu();
+    this.resendInvite.emit(user);
+  }
+
+  protected onCloseSession(user: AdminUser): void {
+    this.closeMenu();
+    this.closeSession.emit(user);
+  }
+
+  private placeMenu(anchor: DOMRect): void {
+    const el = this.popup().nativeElement;
+    const margin = 8;
+    const { offsetWidth: w, offsetHeight: h } = el;
+    let x = anchor.right - w;
+    x = Math.max(margin, Math.min(x, window.innerWidth - w - margin));
+    let y = anchor.bottom + 4;
+    if (y + h > window.innerHeight - margin) {
+      y = Math.max(margin, anchor.top - h - 4);
+    }
+    this.menuPos.set({ x, y });
+    this.cdr.markForCheck();
+  }
+
+  private closeMenu(): void {
+    if (this.menuUser() !== null) {
+      this.menuUser.set(null);
+    }
+  }
+
+  @HostListener('document:click', ['$event'])
+  protected onDocumentClick(event: MouseEvent): void {
+    if (this.menuUser() && !this.popup().nativeElement.contains(event.target as Node)) {
+      this.closeMenu();
+    }
+  }
+
+  @HostListener('document:keydown.escape')
+  @HostListener('window:resize')
+  protected onDismiss(): void {
+    this.closeMenu();
+  }
+
+  @HostListener('window:scroll')
+  protected onScroll(): void {
+    this.closeMenu();
+  }
+
+  ngAfterViewInit(): void {
+    document.body.appendChild(this.popup().nativeElement);
+    // El listado tiene scroll propio: cerrar el menú al desplazarlo.
+    document.addEventListener('scroll', this.scrollListener, true);
+  }
+
+  ngOnDestroy(): void {
+    this.popup().nativeElement.remove();
+    document.removeEventListener('scroll', this.scrollListener, true);
   }
 }

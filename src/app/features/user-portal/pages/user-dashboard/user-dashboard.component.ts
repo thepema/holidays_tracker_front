@@ -3,6 +3,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   HostListener,
+  OnDestroy,
   OnInit,
   computed,
   inject,
@@ -49,6 +50,7 @@ export interface CarouselMonthSheet {
   shortTitle: string;
   requestedCount: number;
   selectedCount: number;
+  availableWeekdaysCount: number;
   cells: UserCalendarDayCell[];
 }
 
@@ -73,7 +75,9 @@ type RequestedFilter = 'todos' | 'proximos' | 'pasados';
   styleUrl: './user-dashboard.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class UserDashboardComponent implements OnInit {
+export class UserDashboardComponent implements OnInit, OnDestroy {
+  private static readonly DRAG_HOLD_DELAY_MS = 500;
+
   private readonly api = inject(ApiService);
   protected readonly userSession = inject(UserSessionService);
   protected readonly notifications = inject(NotificationService);
@@ -99,16 +103,21 @@ export class UserDashboardComponent implements OnInit {
   /** Conjunto de fechas (YYYY-MM-DD) seleccionadas en el calendario pendientes de enviar al servidor */
   readonly selectedDatesSet = signal<ReadonlySet<string>>(new Set<string>());
 
-  /** Índice activo del carrousel de calendarios */
+  /** Índice activo de mes en el calendario */
   readonly activeCarouselIndex = signal<number>(0);
 
-  /** Modo de vista del carrousel: 1 mes o 2 meses simultáneos */
+  /** Modo de vista: 1 pantalla principal con vista previa lateral o 2 pantallas simultáneas */
   readonly visibleMonthsCount = signal<1 | 2>(1);
 
-  /** Estado de arrastre (mantener pulsado el click hacia delante sin fines de semana) */
+  /**
+   * Estado de arrastre por rango: solo se activa tras mantener pulsado medio segundo (500 ms)
+   */
   readonly isDragging = signal<boolean>(false);
   readonly dragStartKey = signal<string | null>(null);
   readonly dragCurrentKey = signal<string | null>(null);
+  private pointerDownKey: string | null = null;
+  private lastHoveredKey: string | null = null;
+  private dragHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private dragMovedAcrossCells = false;
 
   /** Estado de modificación de un día de vacaciones ya pedido (si aún no ha pasado la fecha) */
@@ -156,7 +165,7 @@ export class UserDashboardComponent implements OnInit {
   });
 
   /**
-   * Fechas en previsualización mientras se mantiene presionado el click y se arrastra hacia delante
+   * Fechas en previsualización mientras se mantiene presionado el click (tras 0.5 s) y se arrastra hacia delante
    * excluyendo automáticamente fines de semana, fechas pasadas y días ya pedidos.
    */
   readonly dragPreviewDatesSet = computed<ReadonlySet<string>>(() => {
@@ -169,7 +178,6 @@ export class UserDashboardComponent implements OnInit {
       return new Set<string>();
     }
 
-    // Si se mantiene presionado y se mueve hacia delante, seleccionamos todos los días hábiles entre start y current
     const effectiveEnd = current >= start ? current : start;
     const range = this.computeWeekdaysForward(
       start,
@@ -181,7 +189,7 @@ export class UserDashboardComponent implements OnInit {
   });
 
   /**
-   * Definición de meses del carrousel:
+   * Definición de meses disponibles:
    * - Desde el mes actual hasta final del año actual (diciembre).
    * - Y si estamos en el mes de noviembre (month === 10, o dic), se muestran además los 3 primeros meses del año siguiente (enero, febrero, marzo).
    */
@@ -198,12 +206,10 @@ export class UserDashboardComponent implements OnInit {
 
     const monthSpecs: Array<{ year: number; month: number }> = [];
 
-    // Desde el mes actual hasta diciembre del año en curso
     for (let m = currentMonth; m <= 11; m++) {
       monthSpecs.push({ year: currentYear, month: m });
     }
 
-    // Si estamos en el mes de noviembre (o diciembre), añadimos los 3 primeros meses del año siguiente (Enero, Febrero, Marzo)
     if (currentMonth >= 10) {
       for (let m = 0; m < 3; m++) {
         monthSpecs.push({ year: currentYear + 1, month: m });
@@ -244,6 +250,7 @@ export class UserDashboardComponent implements OnInit {
 
       let requestedCount = 0;
       let selectedCount = 0;
+      let availableWeekdaysCount = 0;
 
       const dayCells: UserCalendarDayCell[] = Array.from({ length: daysInMonth }, (_, idx) => {
         const date = new Date(spec.year, spec.month, idx + 1);
@@ -261,8 +268,8 @@ export class UserDashboardComponent implements OnInit {
 
         if (isRequested) requestedCount++;
         if (isSelected) selectedCount++;
+        if (!isPast && !isWeekend && !isRequested) availableWeekdaysCount++;
 
-        // No se puede pedir dos veces vacaciones en el mismo día, ni en fechas pasadas o fines de semana
         const canInteract = !isPast && !isWeekend && (!isRequested || isEditingOrigin);
 
         return {
@@ -291,6 +298,7 @@ export class UserDashboardComponent implements OnInit {
         shortTitle,
         requestedCount,
         selectedCount,
+        availableWeekdaysCount,
         cells: [...emptyCells, ...dayCells],
       };
     });
@@ -305,6 +313,18 @@ export class UserDashboardComponent implements OnInit {
     return all.slice(startIdx, startIdx + count);
   });
 
+  readonly prevMonthSheet = computed<CarouselMonthSheet | null>(() => {
+    const idx = this.activeCarouselIndex() - 1;
+    const all = this.carouselMonths();
+    return idx >= 0 && idx < all.length ? all[idx] : null;
+  });
+
+  readonly nextMonthSheet = computed<CarouselMonthSheet | null>(() => {
+    const idx = this.activeCarouselIndex() + this.visibleMonthsCount();
+    const all = this.carouselMonths();
+    return idx >= 0 && idx < all.length ? all[idx] : null;
+  });
+
   readonly canGoPrevMonth = computed<boolean>(() => this.activeCarouselIndex() > 0);
 
   readonly canGoNextMonth = computed<boolean>(() => {
@@ -313,13 +333,19 @@ export class UserDashboardComponent implements OnInit {
     return this.activeCarouselIndex() + count < total;
   });
 
+  readonly firstSelectedMonthIndex = computed<number | null>(() => {
+    const found = this.carouselMonths().find((m) => m.selectedCount > 0);
+    return found ? found.index : null;
+  });
+
   /**
    * Lista ordenada de días seleccionados actualmente en el calendario (borrador para enviar a servidor)
    */
   readonly pendingSelectedList = computed<
-    Array<{ dateKey: string; formattedDate: string; weekday: string }>
+    Array<{ dateKey: string; formattedDate: string; weekday: string; monthIndex: number | null }>
   >(() => {
     const dates = [...this.selectedDatesSet()].sort();
+    const months = this.carouselMonths();
     return dates.map((dateKey) => {
       const [y, m, d] = dateKey.split('-').map(Number);
       const dateObj = new Date(y, m - 1, d);
@@ -329,7 +355,14 @@ export class UserDashboardComponent implements OnInit {
         month: 'long',
         year: 'numeric',
       }).format(dateObj);
-      return { dateKey, formattedDate, weekday };
+      const monthKey = dateKey.slice(0, 7);
+      const matchingMonth = months.find((sheet) => sheet.key === monthKey);
+      return {
+        dateKey,
+        formattedDate,
+        weekday,
+        monthIndex: matchingMonth ? matchingMonth.index : null,
+      };
     });
   });
 
@@ -368,7 +401,7 @@ export class UserDashboardComponent implements OnInit {
         year: v.anio ?? y,
         isPast,
         isToday,
-        canModify: !isPast, // Si aún no ha pasado la fecha podemos modificarlo
+        canModify: !isPast,
       };
     });
   });
@@ -397,10 +430,13 @@ export class UserDashboardComponent implements OnInit {
     this.loadUserSessionAndVacations();
   }
 
+  ngOnDestroy(): void {
+    this.clearDragHoldTimer();
+  }
+
   loadUserSessionAndVacations(): void {
     this.loading.set(true);
 
-    // Verificar perfil de sesión si no lo tenemos completo en memoria
     this.api.getCurrentSession().subscribe({
       next: (res) => {
         if (res?.usuario) {
@@ -416,7 +452,6 @@ export class UserDashboardComponent implements OnInit {
           this.sessionExpired.emit();
           return;
         }
-        // Intentar cargar vacaciones igualmente por si el endpoint /sesiones/me no estuviera disponible
         this.fetchVacations();
       },
     });
@@ -446,7 +481,24 @@ export class UserDashboardComponent implements OnInit {
     });
   }
 
-  // Navegación del Carrousel de Calendarios
+  // ============================================================================
+  // Navegación y Atajos de Meses
+  // ============================================================================
+
+  isSlideActive(index: number): boolean {
+    const start = this.activeCarouselIndex();
+    const count = this.visibleMonthsCount();
+    return index >= start && index < start + count;
+  }
+
+  isSlidePrevPeek(index: number): boolean {
+    return index === this.activeCarouselIndex() - 1;
+  }
+
+  isSlideNextPeek(index: number): boolean {
+    return index === this.activeCarouselIndex() + this.visibleMonthsCount();
+  }
+
   prevCarouselMonth(): void {
     if (this.canGoPrevMonth()) {
       this.activeCarouselIndex.update((i) => Math.max(0, i - 1));
@@ -467,6 +519,25 @@ export class UserDashboardComponent implements OnInit {
     this.activeCarouselIndex.set(Math.min(Math.max(0, index), maxStart));
   }
 
+  goToCurrentMonth(): void {
+    this.goToCarouselMonth(0);
+  }
+
+  goToFirstSelectedMonth(): void {
+    const idx = this.firstSelectedMonthIndex();
+    if (idx !== null) {
+      this.goToCarouselMonth(idx);
+    }
+  }
+
+  goToDateMonth(dateKey: string): void {
+    const monthKey = dateKey.slice(0, 7);
+    const found = this.carouselMonths().find((m) => m.key === monthKey);
+    if (found) {
+      this.goToCarouselMonth(found.index);
+    }
+  }
+
   toggleVisibleMonthsCount(count: 1 | 2): void {
     this.visibleMonthsCount.set(count);
     const total = this.carouselMonths().length;
@@ -476,13 +547,67 @@ export class UserDashboardComponent implements OnInit {
     }
   }
 
+  onScreenCardClick(sheet: CarouselMonthSheet, event: MouseEvent): void {
+    if (!this.isSlideActive(sheet.index)) {
+      event.stopPropagation();
+      this.goToCarouselMonth(sheet.index);
+    }
+  }
+
+  clearMonthSelection(monthKey: string, event?: MouseEvent): void {
+    event?.stopPropagation();
+    const prefix = `${monthKey}-`;
+    const nextSet = new Set<string>();
+    for (const d of this.selectedDatesSet()) {
+      if (!d.startsWith(prefix)) {
+        nextSet.add(d);
+      }
+    }
+    this.selectedDatesSet.set(nextSet);
+  }
+
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    const target = event.target as HTMLElement | null;
+    if (
+      target &&
+      (target.tagName === 'INPUT' ||
+        target.tagName === 'TEXTAREA' ||
+        target.tagName === 'SELECT' ||
+        target.isContentEditable)
+    ) {
+      return;
+    }
+
+    if (event.key === 'ArrowLeft') {
+      event.preventDefault();
+      this.prevCarouselMonth();
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault();
+      this.nextCarouselMonth();
+    } else if (event.key === 'Home') {
+      event.preventDefault();
+      this.goToCurrentMonth();
+    } else if (event.key === 'Escape' && this.editingVacation()) {
+      this.cancelEditVacation();
+    }
+  }
+
   // ============================================================================
-  // Selección de días: Individual (click) o En conjunto hacia delante sin fines
-  // de semana (manteniendo presionado el click y arrastrando)
+  // Selección de días:
+  // - Pulsación rápida (< 500 ms): alterna el día (si ya está seleccionado, lo elimina)
+  // - Mantener pulsado >= 500 ms: activa el modo arrastre hacia delante sin fines de semana
   // ============================================================================
 
-  onDayMouseDown(cell: UserCalendarDayCell, event: MouseEvent): void {
+  onDayMouseDown(cell: UserCalendarDayCell, sheetIndex: number, event: MouseEvent): void {
     if (event.button !== 0 || !cell.dateKey) {
+      return;
+    }
+
+    // Si el usuario hace click sobre una pantalla lateral en vista previa, enfocamos ese mes
+    if (!this.isSlideActive(sheetIndex)) {
+      event.preventDefault();
+      this.goToCarouselMonth(sheetIndex);
       return;
     }
 
@@ -492,7 +617,9 @@ export class UserDashboardComponent implements OnInit {
         return;
       }
       if (cell.isRequested && cell.dateKey !== this.editingVacation()?.fecha) {
-        this.notifications.showError('No puedes mover las vacaciones a un día que ya tienes pedido.');
+        this.notifications.showError(
+          'No puedes mover las vacaciones a un día que ya tienes pedido.'
+        );
         return;
       }
       event.preventDefault();
@@ -500,28 +627,52 @@ export class UserDashboardComponent implements OnInit {
       return;
     }
 
-    if (cell.isPast) {
+    if (cell.isPast || cell.isWeekend) {
       return;
     }
 
     if (cell.isRequested) {
-      this.notifications.showError('Ese día ya está pedido como vacaciones. No se puede solicitar dos veces el mismo día.');
-      return;
-    }
-
-    if (cell.isWeekend) {
+      this.notifications.showError(
+        'Ese día ya está pedido como vacaciones. No se puede solicitar dos veces el mismo día.'
+      );
       return;
     }
 
     event.preventDefault();
-    this.isDragging.set(true);
-    this.dragStartKey.set(cell.dateKey);
-    this.dragCurrentKey.set(cell.dateKey);
+    this.clearDragHoldTimer();
+
+    const startDateKey = cell.dateKey;
+    this.pointerDownKey = startDateKey;
+    this.lastHoveredKey = startDateKey;
     this.dragMovedAcrossCells = false;
+
+    // Esperar medio segundo (500 ms) antes de activar el modo arrastre
+    this.dragHoldTimer = setTimeout(() => {
+      this.dragHoldTimer = null;
+      if (!this.pointerDownKey) {
+        return;
+      }
+      this.isDragging.set(true);
+      this.dragStartKey.set(this.pointerDownKey);
+      const hovered = this.lastHoveredKey;
+      if (hovered && hovered >= this.pointerDownKey) {
+        this.dragCurrentKey.set(hovered);
+        if (hovered !== this.pointerDownKey) {
+          this.dragMovedAcrossCells = true;
+        }
+      } else {
+        this.dragCurrentKey.set(this.pointerDownKey);
+      }
+    }, UserDashboardComponent.DRAG_HOLD_DELAY_MS);
   }
 
   onDayMouseEnter(cell: UserCalendarDayCell): void {
-    if (!this.isDragging() || !cell.dateKey) {
+    if (!cell.dateKey) {
+      return;
+    }
+    this.lastHoveredKey = cell.dateKey;
+
+    if (!this.isDragging()) {
       return;
     }
     const startKey = this.dragStartKey();
@@ -531,7 +682,6 @@ export class UserDashboardComponent implements OnInit {
     if (cell.dateKey !== startKey) {
       this.dragMovedAcrossCells = true;
     }
-    // Solo permitimos extender la selección en conjunto hacia delante desde la fecha de inicio
     if (cell.dateKey >= startKey) {
       this.dragCurrentKey.set(cell.dateKey);
     } else {
@@ -541,13 +691,30 @@ export class UserDashboardComponent implements OnInit {
 
   @HostListener('window:mouseup')
   onGlobalMouseUp(): void {
-    if (!this.isDragging()) {
+    const hadPendingPress = this.pointerDownKey !== null;
+    const pressedKey = this.pointerDownKey;
+    const wasDragging = this.isDragging();
+
+    this.clearDragHoldTimer();
+    this.pointerDownKey = null;
+    this.lastHoveredKey = null;
+
+    if (!hadPendingPress && !wasDragging) {
+      return;
+    }
+
+    if (!wasDragging) {
+      // Se soltó antes de medio segundo: pulsación individual (añade o elimina si ya estaba seleccionado)
+      if (pressedKey) {
+        this.toggleSingleDaySelection(pressedKey);
+      }
       return;
     }
 
     const startKey = this.dragStartKey();
     const currentKey = this.dragCurrentKey();
-    const wasRangeDrag = this.dragMovedAcrossCells && currentKey && startKey && currentKey > startKey;
+    const wasRangeDrag =
+      this.dragMovedAcrossCells && currentKey && startKey && currentKey > startKey;
 
     this.isDragging.set(false);
     this.dragStartKey.set(null);
@@ -559,7 +726,6 @@ export class UserDashboardComponent implements OnInit {
     }
 
     if (wasRangeDrag && currentKey) {
-      // Selección en conjunto hacia delante quitando fines de semana y días ya pedidos
       const weekdays = this.computeWeekdaysForward(
         startKey,
         currentKey,
@@ -574,8 +740,15 @@ export class UserDashboardComponent implements OnInit {
         this.selectedDatesSet.set(nextSet);
       }
     } else {
-      // Selección individual: alternar el día pulsado
+      // Si mantuvo pulsado en la misma casilla sin arrastrar a otra, alterna también esa casilla
       this.toggleSingleDaySelection(startKey);
+    }
+  }
+
+  private clearDragHoldTimer(): void {
+    if (this.dragHoldTimer !== null) {
+      clearTimeout(this.dragHoldTimer);
+      this.dragHoldTimer = null;
     }
   }
 
@@ -648,11 +821,12 @@ export class UserDashboardComponent implements OnInit {
       return;
     }
 
-    // Filtrar por seguridad cualquier día que ya esté en la lista de pedidos
     const requestedMap = this.requestedByDateMap();
     const validFechas = fechas.filter((f) => !requestedMap.has(f));
     if (validFechas.length === 0) {
-      this.notifications.showError('Todos los días seleccionados ya estaban registrados como vacaciones.');
+      this.notifications.showError(
+        'Todos los días seleccionados ya estaban registrados como vacaciones.'
+      );
       this.clearPendingSelection();
       return;
     }
@@ -688,6 +862,7 @@ export class UserDashboardComponent implements OnInit {
     }
     this.editingVacation.set(item);
     this.editingNewDate.set(item.fecha);
+    this.goToDateMonth(item.fecha);
   }
 
   cancelEditVacation(): void {
@@ -713,24 +888,32 @@ export class UserDashboardComponent implements OnInit {
     }
 
     if (newDate < this.todayKey()) {
-      this.notifications.showError('No puedes cambiar un día de vacaciones a una fecha que ya ha pasado.');
+      this.notifications.showError(
+        'No puedes cambiar un día de vacaciones a una fecha que ya ha pasado.'
+      );
       return;
     }
 
     const [y, m, d] = newDate.split('-').map(Number);
     const dow = new Date(y, m - 1, d).getDay();
     if (dow === 0 || dow === 6) {
-      this.notifications.showError('No se pueden asignar vacaciones en fin de semana (sábado o domingo).');
+      this.notifications.showError(
+        'No se pueden asignar vacaciones en fin de semana (sábado o domingo).'
+      );
       return;
     }
 
     if (this.requestedByDateMap().has(newDate)) {
-      this.notifications.showError('Ya tienes vacaciones pedidas en esa fecha. No se puede pedir dos veces el mismo día.');
+      this.notifications.showError(
+        'Ya tienes vacaciones pedidas en esa fecha. No se puede pedir dos veces el mismo día.'
+      );
       return;
     }
 
     if (!item.id) {
-      this.notifications.showError('Este registro no dispone de identificador para modificarse.');
+      this.notifications.showError(
+        'Este registro no dispone de identificador para modificarse.'
+      );
       return;
     }
 

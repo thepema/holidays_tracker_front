@@ -30,6 +30,17 @@
         </p>
       </div>
       <div class="hero-meta">
+        @if (activeView() === 'dashboard') {
+          <button
+            type="button"
+            class="btn-export-excel"
+            (click)="openExportExcelModal()"
+            title="Exportar vacaciones a Excel"
+          >
+            <span class="export-icon" aria-hidden="true">⬇</span>
+            <span>Exportar a Excel</span>
+          </button>
+        }
         <span class="current-date">{{ currentDateFormatted() }}</span>
       </div>
     </section>
@@ -76,12 +87,14 @@
         <span>Sincronizando datos con el servidor…</span>
       </div>
     }
+  </main>
 
-    <footer class="workspace-footer">
+  <footer class="workspace-footer">
+    <div class="footer-inner">
       <span class="footer-brand">HOLIDAYS TRACKER · CONSOLA DE ADMINISTRACIÓN</span>
       <span>Gestión de vacaciones</span>
-    </footer>
-  </main>
+    </div>
+  </footer>
 </div>
 
 @if (activeModal() === 'create' || activeModal() === 'edit') {
@@ -108,6 +121,15 @@
     [pendingCount]="state.pendingUsers().length"
     [saving]="state.saving()"
     (confirmSend)="handleConfirmBulkInvite()"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'export-excel') {
+  <app-export-excel-modal
+    [exporting]="state.exporting()"
+    [availableYears]="state.availableVacationYears()"
+    (exportExcel)="handleExportExcel($event)"
     (cancel)="closeModal()"
   />
 }

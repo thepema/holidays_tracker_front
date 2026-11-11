@@ -22,8 +22,9 @@ export class UserSessionService {
 
   /**
    * Guarda la sesión devuelta por la API:
-   * 1. En localStorage para persistencia indefinida sin fecha de caducidad.
-   * 2. Como cookie de larga duración en document.cookie (como respaldo a la HttpOnly del servidor).
+   * 1. El token se guarda únicamente en la cookie ht_session (nunca en localStorage).
+   *    Si la cookie se pierde, el usuario debe recuperar la sesión.
+   * 2. El perfil (no sensible) se guarda en localStorage.
    * 3. En los signals reactivos de la aplicación.
    */
   saveSession(user: UserSessionProfile, token: string): void {
@@ -32,7 +33,6 @@ export class UserSessionService {
 
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.setItem(USER_TOKEN_STORAGE_KEY, token);
         localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(user));
       }
     } catch {
@@ -101,9 +101,10 @@ export class UserSessionService {
       // Ignorar
     }
 
+    // Limpia tokens heredados de versiones anteriores que los guardaban en localStorage
     try {
       if (typeof localStorage !== 'undefined') {
-        return localStorage.getItem(USER_TOKEN_STORAGE_KEY) ?? '';
+        localStorage.removeItem(USER_TOKEN_STORAGE_KEY);
       }
     } catch {
       // Ignorar

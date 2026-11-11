@@ -51,9 +51,6 @@
             <p class="success-description">
               {{ requestSuccessMessage() }}
             </p>
-            <button type="button" class="btn-secondary" (click)="resetRequestForm()">
-              Realizar otra consulta
-            </button>
           </div>
         } @else {
           <form class="landing-form" (ngSubmit)="submitSessionRequest()" novalidate>

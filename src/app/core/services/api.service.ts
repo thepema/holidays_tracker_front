@@ -67,8 +67,18 @@ export class ApiService {
     return this.http.patch(`${this.baseUrl}/api/usuarios/${userId}`, user, { headers: this.auth(token) });
   }
 
-  getVacations(token?: string): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/vacaciones`, { headers: this.auth(token) });
+  getVacations(token?: string, params?: { mes?: number; anio?: number }): Observable<unknown> {
+    const queryParams: Record<string, string> = {};
+    if (params?.anio) {
+      queryParams['anio'] = String(params.anio);
+    }
+    if (params?.mes) {
+      queryParams['mes'] = String(params.mes);
+    }
+    return this.http.get(`${this.baseUrl}/api/vacaciones`, {
+      headers: this.auth(token),
+      params: queryParams,
+    });
   }
 
   addVacations(usuarioId: number, fechas: string[], token?: string): Observable<unknown> {

@@ -73,7 +73,7 @@
               </div>
 
               <div class="cell-bubbles">
-                @for (user of cell.users.slice(0, 4); track user.usuarioId) {
+                @for (user of cell.users.slice(0, 3); track user.usuarioId) {
                   <span
                     class="user-bubble"
                     [style.background-color]="user.color.bg"
@@ -84,17 +84,17 @@
                     {{ user.initials }}
                   </span>
                 }
-                @if (cell.users.length > 4) {
+                @if (cell.users.length > 3) {
                   <span
                     class="user-bubble more-bubble"
                     [attr.title]="
                       '+' +
-                      (cell.users.length - 4) +
-                      ' más: ' +
-                      cell.userNames.slice(4).join(', ')
+                      (cell.users.length - 3) +
+                      ' restantes: ' +
+                      cell.userNames.slice(3).join(', ')
                     "
                   >
-                    +{{ cell.users.length - 4 }}
+                    +{{ cell.users.length - 3 }}
                   </span>
                 }
               </div>

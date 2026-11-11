@@ -16,13 +16,14 @@ import {
   AdminViewTab,
 } from '../../components/admin-header/admin-header.component';
 import { ConfirmBulkModalComponent } from '../../components/confirm-bulk-modal/confirm-bulk-modal.component';
+import { ExportExcelModalComponent } from '../../components/export-excel-modal/export-excel-modal.component';
 import { SessionRequestsComponent } from '../../components/session-requests/session-requests.component';
 import { TeamPanelComponent } from '../../components/team-panel/team-panel.component';
 import { UserFormModalComponent } from '../../components/user-form-modal/user-form-modal.component';
 import { VacationCalendarComponent } from '../../components/vacation-calendar/vacation-calendar.component';
 import { VacationModalComponent } from '../../components/vacation-modal/vacation-modal.component';
 
-type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | '';
+type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | 'export-excel' | '';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -36,6 +37,7 @@ type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | '';
     UserFormModalComponent,
     VacationModalComponent,
     ConfirmBulkModalComponent,
+    ExportExcelModalComponent,
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.css',
@@ -83,6 +85,10 @@ export class AdminDashboardComponent implements OnInit {
     this.activeModal.set('confirm-bulk');
   }
 
+  protected openExportExcelModal(): void {
+    this.activeModal.set('export-excel');
+  }
+
   protected closeModal(): void {
     this.activeModal.set('');
     this.selectedUserForModal.set(null);
@@ -104,6 +110,10 @@ export class AdminDashboardComponent implements OnInit {
 
   protected handleConfirmBulkInvite(): void {
     this.state.sendBulkInvitations(() => this.closeModal());
+  }
+
+  protected handleExportExcel(period: { month: number; year: number }): void {
+    this.state.exportVacationsToExcel(period.month, period.year, () => this.closeModal());
   }
 
   protected handleSendAllRequested(): void {

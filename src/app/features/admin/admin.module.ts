@@ -3,6 +3,7 @@ import { SharedModule } from '../../shared/shared.module';
 import { AuthModule } from '../auth/auth.module';
 import { AdminHeaderComponent } from './components/admin-header/admin-header.component';
 import { ConfirmBulkModalComponent } from './components/confirm-bulk-modal/confirm-bulk-modal.component';
+import { ExportExcelModalComponent } from './components/export-excel-modal/export-excel-modal.component';
 import { SessionRequestsComponent } from './components/session-requests/session-requests.component';
 import { TeamPanelComponent } from './components/team-panel/team-panel.component';
 import { UserFormModalComponent } from './components/user-form-modal/user-form-modal.component';
@@ -19,6 +20,7 @@ const ADMIN_COMPONENTS = [
   UserFormModalComponent,
   VacationModalComponent,
   ConfirmBulkModalComponent,
+  ExportExcelModalComponent,
   AdminDashboardComponent,
   AdminPortalPageComponent,
 ] as const;

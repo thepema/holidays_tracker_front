@@ -79,37 +79,16 @@
           </div>
         </div>
 
-        <details #actionMenu class="user-actions">
-          <summary aria-label="Acciones de usuario" title="Opciones">···</summary>
-          <div class="action-dropdown">
-            <button
-              type="button"
-              (click)="triggerAction(actionMenu, () => editUser.emit(user))"
-            >
-              ✎ Editar perfil
-            </button>
-            <button
-              type="button"
-              (click)="triggerAction(actionMenu, () => addVacations.emit(user))"
-            >
-              📅 Añadir vacaciones
-            </button>
-            <button
-              type="button"
-              (click)="triggerAction(actionMenu, () => resendInvite.emit(user))"
-            >
-              ↗ Enviar invitación
-            </button>
-            <hr class="menu-divider" />
-            <button
-              type="button"
-              class="danger-item"
-              (click)="triggerAction(actionMenu, () => closeSession.emit(user))"
-            >
-              ✕ Cerrar sesión
-            </button>
-          </div>
-        </details>
+        <button
+          type="button"
+          class="actions-trigger"
+          aria-label="Acciones de usuario"
+          aria-haspopup="menu"
+          title="Opciones"
+          (click)="toggleMenu($event, user)"
+        >
+          ···
+        </button>
       </article>
     } @empty {
       <div class="empty-state">
@@ -128,3 +107,35 @@
     }
   </div>
 </aside>
+
+<div
+  #popup
+  class="action-dropdown"
+  role="menu"
+  [class.is-open]="menuUser() !== null"
+  [style.left.px]="menuPos().x"
+  [style.top.px]="menuPos().y"
+>
+  @if (menuUser(); as user) {
+    <button type="button" role="menuitem" (click)="onEditUser(user)">
+      ✎ Editar perfil
+    </button>
+    <button type="button" role="menuitem" (click)="onAddVacations(user)">
+      📅 Añadir vacaciones
+    </button>
+    @if (!hasActiveSession(user)) {
+      <button type="button" role="menuitem" (click)="onResendInvite(user)">
+        ↗ Enviar invitación
+      </button>
+    }
+    <hr class="menu-divider" />
+    <button
+      type="button"
+      role="menuitem"
+      class="danger-item"
+      (click)="onCloseSession(user)"
+    >
+      ✕ Cerrar sesión
+    </button>
+  }
+</div>
