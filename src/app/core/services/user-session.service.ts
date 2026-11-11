@@ -11,25 +11,28 @@ export interface UserSessionProfile {
 
 const USER_TOKEN_STORAGE_KEY = 'holidays_tracker_user_session_token';
 const USER_PROFILE_STORAGE_KEY = 'holidays_tracker_user_profile';
-const TEN_YEARS_SECONDS = 60 * 60 * 24 * 365 * 10;
 
 @Injectable({ providedIn: 'root' })
 export class UserSessionService {
   readonly currentUser = signal<UserSessionProfile | null>(this.readProfileFromStorage());
-  readonly sessionToken = signal<string>(this.readTokenFromStorage());
+  readonly sessionToken = signal<string>('');
 
   readonly isAuthenticated = computed<boolean>(() => Boolean(this.sessionToken()));
 
+  constructor() {
+    this.clearLegacyClientArtifacts();
+  }
+
   /**
    * Guarda la sesión devuelta por la API:
-   * 1. El token se guarda únicamente en la cookie ht_session (nunca en localStorage).
-   *    Si la cookie se pierde, el usuario debe recuperar la sesión.
+   * 1. La cookie ht_session (HttpOnly) es gestionada exclusivamente por el backend.
    * 2. El perfil (no sensible) se guarda en localStorage.
    * 3. En los signals reactivos de la aplicación.
    */
-  saveSession(user: UserSessionProfile, token: string): void {
-    this.sessionToken.set(token);
+  saveSession(user: UserSessionProfile, token = 'cookie-ht-session'): void {
+    this.sessionToken.set(token || 'cookie-ht-session');
     this.currentUser.set(user);
+    this.clearLegacyClientArtifacts();
 
     try {
       if (typeof localStorage !== 'undefined') {
@@ -38,34 +41,16 @@ export class UserSessionService {
     } catch {
       // Ignorar errores de escritura en storage
     }
-
-    try {
-      if (typeof document !== 'undefined') {
-        document.cookie = `ht_session=${encodeURIComponent(
-          token
-        )}; path=/; max-age=${TEN_YEARS_SECONDS}; SameSite=Lax`;
-      }
-    } catch {
-      // Ignorar errores de cookies
-    }
   }
 
   clearSession(): void {
     this.sessionToken.set('');
     this.currentUser.set(null);
+    this.clearLegacyClientArtifacts();
 
     try {
       if (typeof localStorage !== 'undefined') {
-        localStorage.removeItem(USER_TOKEN_STORAGE_KEY);
         localStorage.removeItem(USER_PROFILE_STORAGE_KEY);
-      }
-    } catch {
-      // Ignorar
-    }
-
-    try {
-      if (typeof document !== 'undefined') {
-        document.cookie = 'ht_session=; path=/; max-age=0; SameSite=Lax';
       }
     } catch {
       // Ignorar
@@ -83,25 +68,19 @@ export class UserSessionService {
     }
   }
 
-  private readTokenFromStorage(): string {
+  /**
+   * Elimina cualquier cookie ht_session no-HttpOnly o token en localStorage
+   * que hubiera quedado en el dominio del frontend de versiones anteriores.
+   */
+  private clearLegacyClientArtifacts(): void {
     try {
-      if (typeof document !== 'undefined' && document.cookie) {
-        const match = document.cookie
-          .split(';')
-          .map((c) => c.trim())
-          .find((c) => c.startsWith('ht_session='));
-        if (match) {
-          const cookieVal = decodeURIComponent(match.slice('ht_session='.length)).trim();
-          if (cookieVal) {
-            return cookieVal;
-          }
-        }
+      if (typeof document !== 'undefined') {
+        document.cookie = 'ht_session=; path=/; max-age=0; SameSite=Lax';
       }
     } catch {
       // Ignorar
     }
 
-    // Limpia tokens heredados de versiones anteriores que los guardaban en localStorage
     try {
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem(USER_TOKEN_STORAGE_KEY);
@@ -109,7 +88,6 @@ export class UserSessionService {
     } catch {
       // Ignorar
     }
-    return '';
   }
 
   private readProfileFromStorage(): UserSessionProfile | null {

@@ -7,7 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
 import { extractErrorMessage } from '../../../../core/utils/http-helpers';
@@ -25,7 +25,6 @@ export type LandingMode = 'solicitar' | 'recuperar';
 export class LandingPageComponent {
   private readonly api = inject(ApiService);
   private readonly userSession = inject(UserSessionService);
-  private readonly router = inject(Router);
 
   readonly sessionRecovered = output<void>();
 
@@ -111,7 +110,6 @@ export class LandingPageComponent {
         this.recoveryLoading.set(false);
         this.userSession.saveSession(response.usuario, response.token);
         this.sessionRecovered.emit();
-        this.router.navigate(['/vacaciones']);
       },
       error: (err: unknown) => {
         this.recoveryLoading.set(false);
