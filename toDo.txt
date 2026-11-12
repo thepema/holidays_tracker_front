@@ -1,0 +1,2 @@
+-Opción de borrar los dias de vacaciones a los usuarios desde el panel de admin
+-Hacer una subdivisión de equipos
