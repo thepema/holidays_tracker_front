@@ -67,13 +67,54 @@ export class ApiService {
     return this.http.patch(`${this.baseUrl}/api/usuarios/${userId}`, user, { headers: this.auth(token) });
   }
 
-  getVacations(token?: string, params?: { mes?: number; anio?: number }): Observable<unknown> {
+  updateUserTeams(userId: number, equipoIds: number[], token?: string): Observable<unknown> {
+    return this.http.put(
+      `${this.baseUrl}/api/usuarios/${userId}/equipos`,
+      { equipoIds },
+      { headers: this.auth(token) }
+    );
+  }
+
+  getTeams(token?: string): Observable<unknown> {
+    return this.http.get(`${this.baseUrl}/api/equipos`, { headers: this.auth(token) });
+  }
+
+  createTeam(
+    payload: { nombre: string; usuarioIds?: number[] },
+    token?: string
+  ): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/api/equipos`, payload, { headers: this.auth(token) });
+  }
+
+  updateTeam(
+    equipoId: number,
+    payload: { nombre?: string; usuarioIds?: number[] },
+    token?: string
+  ): Observable<unknown> {
+    return this.http.patch(`${this.baseUrl}/api/equipos/${equipoId}`, payload, {
+      headers: this.auth(token),
+    });
+  }
+
+  deleteTeam(equipoId: number, token?: string): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/api/equipos/${equipoId}`, {
+      headers: this.auth(token),
+    });
+  }
+
+  getVacations(
+    token?: string,
+    params?: { mes?: number; anio?: number; equipoId?: number | null }
+  ): Observable<unknown> {
     const queryParams: Record<string, string> = {};
     if (params?.anio) {
       queryParams['anio'] = String(params.anio);
     }
     if (params?.mes) {
       queryParams['mes'] = String(params.mes);
+    }
+    if (params?.equipoId) {
+      queryParams['equipoId'] = String(params.equipoId);
     }
     return this.http.get(`${this.baseUrl}/api/vacaciones`, {
       headers: this.auth(token),

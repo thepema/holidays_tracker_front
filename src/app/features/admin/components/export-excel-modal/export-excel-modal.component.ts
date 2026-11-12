@@ -8,6 +8,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { AdminTeam } from '../../../../core/models/user.model';
 import {
   MONTH_OPTIONS,
   getMonthLabel,
@@ -26,8 +27,10 @@ import { ModalShellComponent } from '../../../../shared/components/modal-shell/m
 export class ExportExcelModalComponent implements OnInit {
   readonly exporting = input<boolean>(false);
   readonly availableYears = input<number[]>([]);
+  readonly teams = input<AdminTeam[]>([]);
+  readonly initialTeamId = input<number | null>(null);
 
-  readonly exportExcel = output<{ month: number; year: number }>();
+  readonly exportExcel = output<{ month: number; year: number; equipoId: number | null }>();
   readonly cancel = output<void>();
 
   protected readonly months = MONTH_OPTIONS;
@@ -35,6 +38,7 @@ export class ExportExcelModalComponent implements OnInit {
 
   protected readonly selectedMonth = signal<number>(this.defaultPeriod.month);
   protected readonly selectedYear = signal<number>(this.defaultPeriod.year);
+  protected readonly selectedTeamId = signal<number | null>(null);
 
   protected readonly yearOptions = computed<number[]>(() => {
     const currentYear = new Date().getFullYear();
@@ -54,10 +58,19 @@ export class ExportExcelModalComponent implements OnInit {
     () => `${getMonthLabel(this.selectedMonth())} ${this.selectedYear()}`
   );
 
+  protected readonly selectedTeamName = computed<string | null>(() => {
+    const id = this.selectedTeamId();
+    if (id === null) {
+      return null;
+    }
+    return this.teams().find((t) => t.id === id)?.nombre ?? null;
+  });
+
   ngOnInit(): void {
     const prev = getPreviousMonthAndYear();
     this.selectedMonth.set(prev.month);
     this.selectedYear.set(prev.year);
+    this.selectedTeamId.set(this.initialTeamId());
   }
 
   protected onYearChange(value: number | string): void {
@@ -65,6 +78,15 @@ export class ExportExcelModalComponent implements OnInit {
     if (Number.isInteger(parsed) && parsed > 1900) {
       this.selectedYear.set(parsed);
     }
+  }
+
+  protected onTeamChange(value: number | string | null): void {
+    if (value === null || value === '' || value === 'all') {
+      this.selectedTeamId.set(null);
+      return;
+    }
+    const parsed = Number(value);
+    this.selectedTeamId.set(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
   }
 
   protected selectMonthChip(monthValue: number): void {
@@ -78,6 +100,7 @@ export class ExportExcelModalComponent implements OnInit {
     this.exportExcel.emit({
       month: this.selectedMonth(),
       year: this.selectedYear(),
+      equipoId: this.selectedTeamId(),
     });
   }
 }

@@ -15,7 +15,7 @@
 
 .modal-card {
   position: relative;
-  width: min(100%, 490px);
+  width: min(100%, var(--modal-max-width, 490px));
   max-height: 90vh;
   overflow-y: auto;
   padding: 28px 30px;

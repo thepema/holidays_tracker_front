@@ -7,7 +7,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { AdminUser, UserFormPayload } from '../../../../core/models/user.model';
+import { AdminTeam, AdminUser, UserFormPayload } from '../../../../core/models/user.model';
 import { AdminStateService } from '../../../../core/services/admin-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
@@ -19,11 +19,19 @@ import { ConfirmBulkModalComponent } from '../../components/confirm-bulk-modal/c
 import { ExportExcelModalComponent } from '../../components/export-excel-modal/export-excel-modal.component';
 import { SessionRequestsComponent } from '../../components/session-requests/session-requests.component';
 import { TeamPanelComponent } from '../../components/team-panel/team-panel.component';
+import { TeamsModalComponent } from '../../components/teams-modal/teams-modal.component';
 import { UserFormModalComponent } from '../../components/user-form-modal/user-form-modal.component';
 import { VacationCalendarComponent } from '../../components/vacation-calendar/vacation-calendar.component';
 import { VacationModalComponent } from '../../components/vacation-modal/vacation-modal.component';
 
-type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | 'export-excel' | '';
+type ActiveModal =
+  | 'create'
+  | 'edit'
+  | 'teams'
+  | 'vacations'
+  | 'confirm-bulk'
+  | 'export-excel'
+  | '';
 
 @Component({
   selector: 'app-admin-dashboard',
@@ -33,6 +41,7 @@ type ActiveModal = 'create' | 'edit' | 'vacations' | 'confirm-bulk' | 'export-ex
     AlertBannerComponent,
     VacationCalendarComponent,
     TeamPanelComponent,
+    TeamsModalComponent,
     SessionRequestsComponent,
     UserFormModalComponent,
     VacationModalComponent,
@@ -76,6 +85,10 @@ export class AdminDashboardComponent implements OnInit {
     this.activeModal.set('edit');
   }
 
+  protected openTeamsModal(): void {
+    this.activeModal.set('teams');
+  }
+
   protected openVacationsModal(user: AdminUser): void {
     this.selectedUserForModal.set(user);
     this.activeModal.set('vacations');
@@ -100,6 +113,33 @@ export class AdminDashboardComponent implements OnInit {
     this.state.saveUser(payload, editingId, () => this.closeModal());
   }
 
+  protected handleQuickCreateTeam(event: { nombre: string; autoSelectForUser: boolean }): void {
+    const editingId =
+      this.activeModal() === 'edit' ? (this.selectedUserForModal()?.id ?? null) : null;
+    const initialUserIds =
+      event.autoSelectForUser && editingId !== null ? [editingId] : [];
+    this.state.createTeam(event.nombre, initialUserIds);
+  }
+
+  protected handleCreateTeam(payload: { nombre: string; usuarioIds: number[] }): void {
+    this.state.createTeam(payload.nombre, payload.usuarioIds);
+  }
+
+  protected handleUpdateTeam(payload: {
+    equipoId: number;
+    nombre: string;
+    usuarioIds: number[];
+  }): void {
+    this.state.updateTeam(payload.equipoId, {
+      nombre: payload.nombre,
+      usuarioIds: payload.usuarioIds,
+    });
+  }
+
+  protected handleDeleteTeam(team: AdminTeam): void {
+    this.state.deleteTeam(team.id);
+  }
+
   protected handleSaveVacations(rawDates: string): void {
     const user = this.selectedUserForModal();
     if (!user) {
@@ -112,8 +152,14 @@ export class AdminDashboardComponent implements OnInit {
     this.state.sendBulkInvitations(() => this.closeModal());
   }
 
-  protected handleExportExcel(period: { month: number; year: number }): void {
-    this.state.exportVacationsToExcel(period.month, period.year, () => this.closeModal());
+  protected handleExportExcel(period: {
+    month: number;
+    year: number;
+    equipoId: number | null;
+  }): void {
+    this.state.exportVacationsToExcel(period.month, period.year, period.equipoId, () =>
+      this.closeModal()
+    );
   }
 
   protected handleSendAllRequested(): void {

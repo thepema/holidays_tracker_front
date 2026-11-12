@@ -1,9 +1,13 @@
 :host { display: block; }
 .team-panel { background: var(--bg-card); border: 1px solid var(--border-subtle); border-radius: 16px; padding: 22px 20px 18px; box-shadow: var(--shadow-card); display: flex; flex-direction: column; }
-.team-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.team-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .eyebrow { margin: 0 0 5px; color: var(--accent-medium); font-size: 11px; font-weight: 700; letter-spacing: 0.14em; }
 .team-header h2 { margin: 0; display: flex; align-items: center; gap: 8px; color: var(--text-primary); font-size: 20px; font-weight: 700; letter-spacing: -0.02em; }
 .count-pill { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-primary); font-size: 12px; font-weight: 700; }
+.header-actions { display: flex; align-items: center; gap: 8px; }
+.btn-teams-icon { display: inline-flex; align-items: center; gap: 6px; padding: 8px 12px; border: 1px solid var(--border-accent); border-radius: 9px; background: var(--bg-input); color: var(--accent-primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; }
+.btn-teams-icon:hover { background: var(--accent-subtle); border-color: var(--accent-primary); }
+.teams-count-badge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-primary); font-size: 10px; font-weight: 700; }
 .btn-add-icon { padding: 8px 13px; border: 0; border-radius: 9px; background: var(--accent-primary); color: var(--text-on-accent); font-size: 12px; font-weight: 600; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
 .btn-add-icon:hover { background: var(--accent-darker); transform: translateY(-1px); }
 .team-toolbar { margin-top: 16px; display: grid; gap: 12px; }
@@ -12,8 +16,9 @@
 .btn-bulk-invite:disabled { opacity: 0.5; cursor: not-allowed; }
 .invite-badge { min-width: 22px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--accent-primary); color: var(--text-on-accent); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
 .search-and-filters { display: grid; gap: 8px; }
-.search-input { width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--bg-input); color: var(--text-primary); font-size: 12px; outline: none; transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease; }
-.search-input:focus { background: var(--bg-input-focus); border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-focus-ring); }
+.search-input, .team-filter-select { width: 100%; padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: 9px; background: var(--bg-input); color: var(--text-primary); font-size: 12px; outline: none; transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease; }
+.team-filter-select { font-weight: 600; cursor: pointer; }
+.search-input:focus, .team-filter-select:focus { background: var(--bg-input-focus); border-color: var(--accent-primary); box-shadow: 0 0 0 3px var(--accent-focus-ring); }
 .user-list { margin-top: 10px; max-height: 460px; overflow-y: auto; }
 .user-card { display: flex; align-items: center; gap: 11px; padding: 12px 10px; margin-bottom: 6px; border-radius: 10px; background: var(--bg-input); border: 1px solid var(--border-subtle); transition: border-color 0.15s ease; }
 .user-card:hover { border-color: var(--border-accent); }
@@ -23,6 +28,8 @@
 .user-title-row strong { color: var(--text-primary); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .role-badge { flex-shrink: 0; padding: 1px 6px; border-radius: 5px; background: var(--accent-subtle); color: var(--accent-primary); font-size: 10px; font-weight: 600; }
 .user-email { color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.user-teams-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
+.user-team-pill { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-primary); font-size: 10px; font-weight: 600; }
 .user-meta { display: flex; align-items: center; gap: 10px; margin-top: 2px; font-size: 11px; flex-wrap: wrap; }
 .vacation-pill { color: var(--accent-medium); font-weight: 700; }
 .session-status { display: inline-flex; align-items: center; gap: 5px; color: var(--status-success); font-size: 11px; font-weight: 500; }

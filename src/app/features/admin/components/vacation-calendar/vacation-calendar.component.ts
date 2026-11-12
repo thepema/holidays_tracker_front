@@ -4,9 +4,16 @@ import {
   computed,
   effect,
   input,
+  output,
   signal,
 } from '@angular/core';
-import { AdminUser, getUserDisplayName } from '../../../../core/models/user.model';
+import { FormsModule } from '@angular/forms';
+import {
+  AdminTeam,
+  AdminUser,
+  UserTeamBadge,
+  getUserDisplayName,
+} from '../../../../core/models/user.model';
 import {
   CalendarDayCell,
   CalendarVacationUser,
@@ -19,6 +26,7 @@ import {
 @Component({
   selector: 'app-vacation-calendar',
   standalone: true,
+  imports: [FormsModule],
   templateUrl: './vacation-calendar.component.html',
   styleUrl: './vacation-calendar.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -26,6 +34,10 @@ import {
 export class VacationCalendarComponent {
   readonly users = input<AdminUser[]>([]);
   readonly vacations = input.required<VacationDay[]>();
+  readonly teams = input<AdminTeam[]>([]);
+  readonly selectedTeamId = input<number | null>(null);
+
+  readonly teamFilterChange = output<number | null>();
 
   protected readonly weekDays = [
     { full: 'Lun', short: 'L' },
@@ -71,16 +83,33 @@ export class VacationCalendarComponent {
     });
   }
 
+  protected readonly selectedTeamName = computed<string | null>(() => {
+    const id = this.selectedTeamId();
+    if (id === null) {
+      return null;
+    }
+    return this.teams().find((t) => t.id === id)?.nombre ?? null;
+  });
+
   protected readonly monthTitle = computed<string>(() =>
     new Intl.DateTimeFormat('es-ES', { month: 'long', year: 'numeric' }).format(
       this.currentMonth()
     )
   );
 
+  protected readonly userTeamsByUserId = computed<ReadonlyMap<number, UserTeamBadge[]>>(() => {
+    const map = new Map<number, UserTeamBadge[]>();
+    for (const u of this.users()) {
+      map.set(u.id, u.equipos ?? []);
+    }
+    return map;
+  });
+
   protected readonly calendarCells = computed<CalendarDayCell[]>(() => {
     const monthDate = this.currentMonth();
     const year = monthDate.getFullYear();
     const month = monthDate.getMonth();
+    const activeTeamId = this.selectedTeamId();
 
     const firstDayOfMonth = new Date(year, month, 1);
     const offset = (firstDayOfMonth.getDay() + 6) % 7;
@@ -108,6 +137,12 @@ export class VacationCalendarComponent {
       const matchedUser =
         userById.get(vac.usuarioId) ??
         (vacFullNameKey ? userByName.get(vacFullNameKey) : undefined);
+
+      if (activeTeamId !== null) {
+        if (!matchedUser || !matchedUser.equipoIds.includes(activeTeamId)) {
+          continue;
+        }
+      }
 
       const resolvedUserId = matchedUser?.id ?? vac.usuarioId;
       const nombre = (vac.nombre || matchedUser?.nombre || '').trim();
@@ -212,6 +247,19 @@ export class VacationCalendarComponent {
       year: 'numeric',
     }).format(cell.date);
   });
+
+  protected onTeamSelectChange(value: string | number | null): void {
+    if (value === null || value === '' || value === 'all') {
+      this.teamFilterChange.emit(null);
+      return;
+    }
+    const parsed = Number(value);
+    this.teamFilterChange.emit(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
+  }
+
+  protected userTeams(usuarioId: number): UserTeamBadge[] {
+    return this.userTeamsByUserId().get(usuarioId) ?? [];
+  }
 
   protected changeMonth(offset: number): void {
     const current = this.currentMonth();

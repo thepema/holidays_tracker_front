@@ -24,7 +24,7 @@
         <p class="subtitle">
           {{
             activeView() === 'dashboard'
-              ? 'Supervisa la planificación vacacional, gestiona altas y administra los accesos.'
+              ? 'Supervisa la planificación vacacional, gestiona altas, equipos y administra los accesos.'
               : 'Usuarios que no tienen su sesión activada o han solicitado acceso.'
           }}
         </p>
@@ -55,15 +55,22 @@
     @if (activeView() === 'dashboard') {
       <div class="dashboard-layout">
         <app-vacation-calendar
-          [users]="state.users()"
-          [vacations]="state.vacations()"
+          [users]="state.calendarUsers()"
+          [vacations]="state.calendarVacations()"
+          [teams]="state.teams()"
+          [selectedTeamId]="state.selectedTeamFilter()"
+          (teamFilterChange)="state.setTeamFilter($event)"
         />
 
         <app-team-panel
           [users]="state.users()"
+          [teams]="state.teams()"
+          [selectedTeamFilter]="state.selectedTeamFilter()"
           [pendingCount]="state.pendingUsers().length"
           [userYearCounts]="state.userCountByYearMap()"
           (createClick)="openCreateUserModal()"
+          (manageTeamsClick)="openTeamsModal()"
+          (teamFilterChange)="state.setTeamFilter($event)"
           (bulkInviteClick)="openConfirmBulkModal()"
           (editUser)="openEditUserModal($event)"
           (addVacations)="openVacationsModal($event)"
@@ -101,8 +108,22 @@
   <app-user-form-modal
     [mode]="activeModal() === 'edit' ? 'edit' : 'create'"
     [initialUser]="selectedUserForModal()"
+    [teams]="state.teams()"
     [saving]="state.saving()"
     (save)="handleSaveUser($event)"
+    (createTeamQuick)="handleQuickCreateTeam($event)"
+    (cancel)="closeModal()"
+  />
+}
+
+@if (activeModal() === 'teams') {
+  <app-teams-modal
+    [teams]="state.teams()"
+    [users]="state.users()"
+    [saving]="state.saving()"
+    (createTeam)="handleCreateTeam($event)"
+    (updateTeam)="handleUpdateTeam($event)"
+    (deleteTeam)="handleDeleteTeam($event)"
     (cancel)="closeModal()"
   />
 }
@@ -129,6 +150,8 @@
   <app-export-excel-modal
     [exporting]="state.exporting()"
     [availableYears]="state.availableVacationYears()"
+    [teams]="state.teams()"
+    [initialTeamId]="state.selectedTeamFilter()"
     (exportExcel)="handleExportExcel($event)"
     (cancel)="closeModal()"
   />

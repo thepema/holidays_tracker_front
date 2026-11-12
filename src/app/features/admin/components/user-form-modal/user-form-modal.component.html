@@ -3,8 +3,8 @@
   [title]="mode() === 'create' ? 'Añadir persona' : 'Editar usuario'"
   [subtitle]="
     mode() === 'create'
-      ? 'Completa los datos para darle de alta y enviarle una invitación.'
-      : 'Actualiza la información de esta persona.'
+      ? 'Completa los datos para darle de alta, asignarle equipos y enviarle una invitación.'
+      : 'Actualiza la información y los equipos a los que pertenece esta persona.'
   "
   (closeModal)="cancel.emit()"
 >
@@ -68,6 +68,69 @@
         }
       </select>
     </label>
+
+    <div class="field full-row teams-field">
+      <div class="teams-field-header">
+        <div>
+          <span>Equipos asignados ({{ form().equipoIds.length }})</span>
+          <small class="teams-field-hint">
+            Puedes seleccionar uno o varios equipos para esta persona.
+          </small>
+        </div>
+        <button
+          type="button"
+          class="btn-quick-team-toggle"
+          (click)="showQuickTeamInput.set(!showQuickTeamInput())"
+        >
+          {{ showQuickTeamInput() ? 'Cancelar' : '＋ Crear equipo' }}
+        </button>
+      </div>
+
+      @if (showQuickTeamInput()) {
+        <div class="quick-team-row">
+          <input
+            type="text"
+            name="quickTeamName"
+            maxlength="120"
+            [ngModel]="newTeamName()"
+            (ngModelChange)="newTeamName.set($event)"
+            placeholder="Nombre del nuevo equipo…"
+            (keydown.enter)="$event.preventDefault(); submitQuickTeam()"
+          />
+          <button
+            type="button"
+            class="btn-quick-team-save"
+            [disabled]="saving() || !newTeamName().trim()"
+            (click)="submitQuickTeam()"
+          >
+            Añadir
+          </button>
+        </div>
+      }
+
+      @if (teams().length > 0) {
+        <div class="teams-chips-grid" role="group" aria-label="Equipos disponibles">
+          @for (team of teams(); track team.id) {
+            <button
+              type="button"
+              class="team-select-chip"
+              [class.is-selected]="isTeamSelected(team.id)"
+              (click)="toggleTeam(team.id)"
+              [attr.aria-pressed]="isTeamSelected(team.id)"
+            >
+              <span class="chip-check" aria-hidden="true">
+                {{ isTeamSelected(team.id) ? '✓' : '＋' }}
+              </span>
+              <span class="chip-name">{{ team.nombre }}</span>
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="no-teams-note">
+          Todavía no hay equipos creados. Pulsa en «＋ Crear equipo» para añadir el primero.
+        </p>
+      }
+    </div>
 
     <div class="form-actions full-row">
       <button type="button" class="btn-secondary" (click)="cancel.emit()">Cancelar</button>

@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  AdminTeam,
   AdminUser,
   getUserDisplayName,
   getUserInitials,
@@ -34,10 +35,14 @@ import { UserColorPalette, getUserColor } from '../../../../core/models/vacation
 })
 export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   readonly users = input.required<AdminUser[]>();
+  readonly teams = input<AdminTeam[]>([]);
+  readonly selectedTeamFilter = input<number | null>(null);
   readonly pendingCount = input.required<number>();
   readonly userYearCounts = input.required<Map<number, number>>();
 
   readonly createClick = output<void>();
+  readonly manageTeamsClick = output<void>();
+  readonly teamFilterChange = output<number | null>();
   readonly bulkInviteClick = output<void>();
   readonly editUser = output<AdminUser>();
   readonly addVacations = output<AdminUser>();
@@ -58,19 +63,37 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
 
   protected readonly filteredUsers = computed<AdminUser[]>(() => {
     const query = this.searchTerm().trim().toLowerCase();
-    const all = this.users();
-    if (!query) {
-      return all;
+    const teamId = this.selectedTeamFilter();
+    let list = this.users();
+
+    if (teamId !== null) {
+      list = list.filter((u) => u.equipoIds.includes(teamId));
     }
-    return all.filter((u) => {
+
+    if (!query) {
+      return list;
+    }
+
+    return list.filter((u) => {
       const fullName = getUserDisplayName(u).toLowerCase();
+      const teamNames = (u.equipos ?? []).map((t) => t.nombre.toLowerCase()).join(' ');
       return (
         fullName.includes(query) ||
         u.email.toLowerCase().includes(query) ||
-        u.cargo.toLowerCase().includes(query)
+        u.cargo.toLowerCase().includes(query) ||
+        teamNames.includes(query)
       );
     });
   });
+
+  protected onTeamFilterSelect(value: string | number | null): void {
+    if (value === null || value === '' || value === 'all') {
+      this.teamFilterChange.emit(null);
+      return;
+    }
+    const parsed = Number(value);
+    this.teamFilterChange.emit(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
+  }
 
   protected isPending(user: AdminUser): boolean {
     return isUserPending(user);

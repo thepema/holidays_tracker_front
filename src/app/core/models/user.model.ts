@@ -13,16 +13,29 @@ export function getVacationTypeLabel(value: string): string {
   return VACATION_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
+export interface UserTeamBadge {
+  id: number;
+  nombre: string;
+}
+
+export interface AdminTeam {
+  id: number;
+  nombre: string;
+  usuarioIds: number[];
+}
+
 export interface UserFormPayload {
   nombre: string;
   apellidos: string;
   cargo: string;
   email: string;
   tipo_vacaciones: string;
+  equipoIds: number[];
 }
 
 export interface AdminUser extends UserFormPayload {
   id: number;
+  equipos: UserTeamBadge[];
   sesionActiva?: boolean;
   solicitudPendiente?: boolean;
   estadoSesion?: 'proceso' | 'solicitado' | 'autorizado' | string;
@@ -35,6 +48,48 @@ export function createEmptyUserForm(): UserFormPayload {
     cargo: '',
     email: '',
     tipo_vacaciones: '',
+    equipoIds: [],
+  };
+}
+
+export function normalizeTeam(value: unknown): AdminTeam | null {
+  if (typeof value !== 'object' || value === null) {
+    return null;
+  }
+  const item = value as Record<string, unknown>;
+  const id = Number(item['id'] ?? item['equipoId'] ?? item['equipo_id']);
+  const nombre = String(item['nombre'] ?? item['name'] ?? '').trim();
+  if (!Number.isFinite(id) || id < 1 || !nombre) {
+    return null;
+  }
+
+  const rawUsers =
+    item['usuarioIds'] ??
+    item['usuario_ids'] ??
+    item['usuarios'] ??
+    item['userIds'] ??
+    item['user_ids'] ??
+    [];
+  const usuarioIdsSet = new Set<number>();
+  if (Array.isArray(rawUsers)) {
+    for (const entry of rawUsers) {
+      const uid = Number(
+        typeof entry === 'object' && entry !== null
+          ? ((entry as Record<string, unknown>)['id'] ??
+            (entry as Record<string, unknown>)['usuarioId'] ??
+            (entry as Record<string, unknown>)['usuario_id'])
+          : entry
+      );
+      if (Number.isInteger(uid) && uid > 0) {
+        usuarioIdsSet.add(uid);
+      }
+    }
+  }
+
+  return {
+    id,
+    nombre,
+    usuarioIds: [...usuarioIdsSet],
   };
 }
 
@@ -76,6 +131,39 @@ export function normalizeUser(value: unknown): AdminUser | null {
         item['session_requested']
     );
 
+  const equiposMap = new Map<number, UserTeamBadge>();
+  const rawEquipos = item['equipos'] ?? item['teams'] ?? [];
+  if (Array.isArray(rawEquipos)) {
+    for (const entry of rawEquipos) {
+      if (typeof entry === 'object' && entry !== null) {
+        const rec = entry as Record<string, unknown>;
+        const tid = Number(rec['id'] ?? rec['equipoId'] ?? rec['equipo_id']);
+        const tname = String(rec['nombre'] ?? rec['name'] ?? '').trim();
+        if (Number.isInteger(tid) && tid > 0) {
+          equiposMap.set(tid, { id: tid, nombre: tname || `Equipo #${tid}` });
+        }
+      } else {
+        const tid = Number(entry);
+        if (Number.isInteger(tid) && tid > 0 && !equiposMap.has(tid)) {
+          equiposMap.set(tid, { id: tid, nombre: `Equipo #${tid}` });
+        }
+      }
+    }
+  }
+
+  const rawEquipoIds = item['equipoIds'] ?? item['equipo_ids'] ?? [];
+  if (Array.isArray(rawEquipoIds)) {
+    for (const rawId of rawEquipoIds) {
+      const tid = Number(rawId);
+      if (Number.isInteger(tid) && tid > 0 && !equiposMap.has(tid)) {
+        equiposMap.set(tid, { id: tid, nombre: `Equipo #${tid}` });
+      }
+    }
+  }
+
+  const equipos = [...equiposMap.values()];
+  const equipoIds = equipos.map((e) => e.id);
+
   return {
     id,
     nombre: String(item['nombre'] ?? '').trim(),
@@ -83,6 +171,8 @@ export function normalizeUser(value: unknown): AdminUser | null {
     cargo: String(item['cargo'] ?? '').trim(),
     email: String(item['email'] ?? '').trim(),
     tipo_vacaciones: String(item['tipo_vacaciones'] ?? '').trim(),
+    equipos,
+    equipoIds,
     sesionActiva,
     solicitudPendiente,
     estadoSesion: rawEstadoSesion || (solicitudPendiente ? 'solicitado' : (!sesionActiva ? 'proceso' : 'autorizado')),
