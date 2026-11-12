@@ -286,10 +286,14 @@ export function generateVacationsXlsxBytes(
 export function downloadVacationsExcel(
   rows: VacationExcelRow[],
   month: number,
-  year: number
+  year: number,
+  teamName?: string | null
 ): void {
   const monthLabel = getMonthLabel(month);
-  const sheetTitle = `Vacaciones ${monthLabel} ${year}`;
+  const cleanTeam = (teamName ?? '').trim();
+  const sheetTitle = cleanTeam
+    ? `Vacaciones ${cleanTeam} ${monthLabel} ${year}`
+    : `Vacaciones ${monthLabel} ${year}`;
   const xlsxBytes = generateVacationsXlsxBytes(rows, sheetTitle);
 
   const blob = new Blob([xlsxBytes.buffer as ArrayBuffer], {
@@ -300,7 +304,16 @@ export function downloadVacationsExcel(
     .toLowerCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '');
-  const fileName = `vacaciones_${normalizedMonth}_${year}.xlsx`;
+  const normalizedTeam = cleanTeam
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+
+  const fileName = normalizedTeam
+    ? `vacaciones_${normalizedTeam}_${normalizedMonth}_${year}.xlsx`
+    : `vacaciones_${normalizedMonth}_${year}.xlsx`;
 
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');

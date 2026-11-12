@@ -6,6 +6,7 @@ import { ConfirmBulkModalComponent } from './components/confirm-bulk-modal/confi
 import { ExportExcelModalComponent } from './components/export-excel-modal/export-excel-modal.component';
 import { SessionRequestsComponent } from './components/session-requests/session-requests.component';
 import { TeamPanelComponent } from './components/team-panel/team-panel.component';
+import { TeamsModalComponent } from './components/teams-modal/teams-modal.component';
 import { UserFormModalComponent } from './components/user-form-modal/user-form-modal.component';
 import { VacationCalendarComponent } from './components/vacation-calendar/vacation-calendar.component';
 import { VacationModalComponent } from './components/vacation-modal/vacation-modal.component';
@@ -16,6 +17,7 @@ const ADMIN_COMPONENTS = [
   AdminHeaderComponent,
   VacationCalendarComponent,
   TeamPanelComponent,
+  TeamsModalComponent,
   SessionRequestsComponent,
   UserFormModalComponent,
   VacationModalComponent,

@@ -5,6 +5,9 @@
       <h2>Calendario de vacaciones</h2>
       <p class="subtitle">
         Pulsa sobre cualquier día con vacaciones para ver el detalle de los usuarios
+        @if (selectedTeamName(); as teamName) {
+          · Equipo: <strong>{{ teamName }}</strong>
+        }
         @if (monthVacationDaysCount() > 0) {
           · <strong>{{ monthVacationDaysCount() }}</strong>
           {{ monthVacationDaysCount() === 1 ? 'día con ausencias' : 'días con ausencias' }} este mes
@@ -12,27 +15,47 @@
       </p>
     </div>
 
-    <div class="month-controls">
-      <button
-        type="button"
-        class="btn-nav"
-        (click)="changeMonth(-1)"
-        aria-label="Mes anterior"
-        title="Mes anterior"
-      >
-        ‹
-      </button>
-      <span class="month-label">{{ monthTitle() }}</span>
-      <button
-        type="button"
-        class="btn-nav"
-        (click)="changeMonth(1)"
-        aria-label="Mes siguiente"
-        title="Mes siguiente"
-      >
-        ›
-      </button>
-      <button type="button" class="btn-today" (click)="goToToday()">Hoy</button>
+    <div class="header-controls-group">
+      <div class="team-filter-control">
+        <label class="filter-label" for="calendar-team-filter">Equipo</label>
+        <select
+          id="calendar-team-filter"
+          class="calendar-team-select"
+          [ngModel]="selectedTeamId() ?? 'all'"
+          (ngModelChange)="onTeamSelectChange($event)"
+          aria-label="Filtrar calendario por equipo"
+        >
+          <option value="all">Todos los equipos</option>
+          @for (team of teams(); track team.id) {
+            <option [ngValue]="team.id">
+              {{ team.nombre }} ({{ team.usuarioIds.length }})
+            </option>
+          }
+        </select>
+      </div>
+
+      <div class="month-controls">
+        <button
+          type="button"
+          class="btn-nav"
+          (click)="changeMonth(-1)"
+          aria-label="Mes anterior"
+          title="Mes anterior"
+        >
+          ‹
+        </button>
+        <span class="month-label">{{ monthTitle() }}</span>
+        <button
+          type="button"
+          class="btn-nav"
+          (click)="changeMonth(1)"
+          aria-label="Mes siguiente"
+          title="Mes siguiente"
+        >
+          ›
+        </button>
+        <button type="button" class="btn-today" (click)="goToToday()">Hoy</button>
+      </div>
     </div>
   </header>
 
@@ -173,6 +196,13 @@
                     <span class="detail-user-role">{{ user.cargo }}</span>
                   }
                 </div>
+                @if (userTeams(user.usuarioId).length > 0) {
+                  <div class="detail-user-teams">
+                    @for (team of userTeams(user.usuarioId); track team.id) {
+                      <span class="detail-team-pill">{{ team.nombre }}</span>
+                    }
+                  </div>
+                }
                 @if (user.email) {
                   <span class="detail-user-email">{{ user.email }}</span>
                 } @else {
@@ -208,7 +238,13 @@
         }
       </div>
     } @else {
-      <span class="legend-empty">No hay vacaciones registradas en este mes.</span>
+      <span class="legend-empty">
+        {{
+          selectedTeamName()
+            ? 'No hay vacaciones registradas para el equipo «' + selectedTeamName() + '» en este mes.'
+            : 'No hay vacaciones registradas en este mes.'
+        }}
+      </span>
     }
     <span class="legend-hint">Pulsa en un día con vacaciones para ver los usuarios</span>
   </footer>

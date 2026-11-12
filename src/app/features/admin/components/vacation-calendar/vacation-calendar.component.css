@@ -47,6 +47,49 @@
   line-height: 1.45;
 }
 
+.header-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.team-filter-control {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--bg-input);
+  padding: 5px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+}
+
+.filter-label {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.calendar-team-select {
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-card);
+  color: var(--accent-primary);
+  font-size: 12px;
+  font-weight: 600;
+  height: 32px;
+  padding: 0 10px;
+  cursor: pointer;
+  outline: none;
+  max-width: 220px;
+}
+
+.calendar-team-select:focus {
+  border-color: var(--accent-primary);
+}
+
 .month-controls {
   display: flex;
   align-items: center;
@@ -393,6 +436,21 @@
   font-weight: 600;
 }
 
+.detail-user-teams {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.detail-team-pill {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  font-size: 9.5px;
+  font-weight: 600;
+}
+
 .detail-user-email,
 .detail-user-status {
   color: var(--text-muted);
@@ -495,6 +553,22 @@
 
   .subtitle {
     font-size: 12px;
+  }
+
+  .header-controls-group {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .team-filter-control {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .calendar-team-select {
+    flex: 1;
+    max-width: none;
   }
 
   .month-controls {

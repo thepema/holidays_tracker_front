@@ -1,10 +1,13 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { forkJoin } from 'rxjs';
+import { catchError, forkJoin, of } from 'rxjs';
 import {
+  AdminTeam,
   AdminUser,
   UserFormPayload,
+  UserTeamBadge,
   getUserDisplayName,
   isUserRequested,
+  normalizeTeam,
   normalizeUser,
 } from '../models/user.model';
 import { VacationDay, normalizeVacationEntry } from '../models/vacation.model';
@@ -25,12 +28,52 @@ export class AdminStateService {
   private readonly notifications = inject(NotificationService);
 
   private readonly rawUsers = signal<AdminUser[]>([]);
+  private readonly rawTeams = signal<AdminTeam[]>([]);
   readonly pendingUsers = signal<AdminUser[]>([]);
   readonly vacations = signal<VacationDay[]>([]);
   readonly selectedUserIds = signal<number[]>([]);
+  readonly selectedTeamFilter = signal<number | null>(null);
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
   readonly exporting = signal<boolean>(false);
+
+  readonly teams = computed<AdminTeam[]>(() => {
+    const teamMap = new Map<number, { id: number; nombre: string; userSet: Set<number> }>();
+
+    for (const t of this.rawTeams()) {
+      teamMap.set(t.id, {
+        id: t.id,
+        nombre: t.nombre,
+        userSet: new Set<number>(t.usuarioIds),
+      });
+    }
+
+    for (const u of this.rawUsers()) {
+      for (const badge of u.equipos ?? []) {
+        const existing = teamMap.get(badge.id);
+        if (existing) {
+          existing.userSet.add(u.id);
+          if (!existing.nombre && badge.nombre) {
+            existing.nombre = badge.nombre;
+          }
+        } else {
+          teamMap.set(badge.id, {
+            id: badge.id,
+            nombre: badge.nombre || `Equipo #${badge.id}`,
+            userSet: new Set<number>([u.id]),
+          });
+        }
+      }
+    }
+
+    return [...teamMap.values()]
+      .map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        usuarioIds: [...item.userSet],
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  });
 
   readonly availableVacationYears = computed<number[]>(() => {
     const years = new Set<number>();
@@ -53,10 +96,67 @@ export class AdminStateService {
 
   readonly users = computed<AdminUser[]>(() => {
     const pendingSet = new Set(this.pendingUsers().map((u) => u.id));
-    return this.rawUsers().map((user) => ({
-      ...user,
-      sesionActiva: !pendingSet.has(user.id) && user.estadoSesion !== 'solicitado',
-    }));
+    const allTeams = this.teams();
+    const teamById = new Map<number, AdminTeam>(allTeams.map((t) => [t.id, t]));
+
+    return this.rawUsers().map((user) => {
+      const badgeMap = new Map<number, UserTeamBadge>();
+      for (const b of user.equipos ?? []) {
+        const known = teamById.get(b.id);
+        badgeMap.set(b.id, {
+          id: b.id,
+          nombre: known?.nombre || b.nombre || `Equipo #${b.id}`,
+        });
+      }
+      for (const t of allTeams) {
+        if (t.usuarioIds.includes(user.id) && !badgeMap.has(t.id)) {
+          badgeMap.set(t.id, { id: t.id, nombre: t.nombre });
+        }
+      }
+
+      const equipos = [...badgeMap.values()].sort((a, b) =>
+        a.nombre.localeCompare(b.nombre, 'es')
+      );
+      const equipoIds = equipos.map((e) => e.id);
+
+      return {
+        ...user,
+        equipos,
+        equipoIds,
+        sesionActiva: !pendingSet.has(user.id) && user.estadoSesion !== 'solicitado',
+      };
+    });
+  });
+
+  readonly calendarUsers = computed<AdminUser[]>(() => {
+    const teamId = this.selectedTeamFilter();
+    const allUsers = this.users();
+    if (teamId === null) {
+      return allUsers;
+    }
+    return allUsers.filter((u) => u.equipoIds.includes(teamId));
+  });
+
+  readonly calendarVacations = computed<VacationDay[]>(() => {
+    const teamId = this.selectedTeamFilter();
+    const allVacations = this.vacations();
+    if (teamId === null) {
+      return allVacations;
+    }
+
+    const allowedUsers = this.calendarUsers();
+    const allowedIds = new Set<number>(allowedUsers.map((u) => u.id));
+    const allowedNames = new Set<string>(
+      allowedUsers.map((u) => getUserDisplayName(u).toLowerCase()).filter(Boolean)
+    );
+
+    return allVacations.filter((vac) => {
+      if (allowedIds.has(vac.usuarioId)) {
+        return true;
+      }
+      const vacFullName = `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim().toLowerCase();
+      return Boolean(vacFullName && allowedNames.has(vacFullName));
+    });
   });
 
   readonly userCountByYearMap = computed<Map<number, number>>(() => {
@@ -101,13 +201,19 @@ export class AdminStateService {
 
   reset(): void {
     this.rawUsers.set([]);
+    this.rawTeams.set([]);
     this.pendingUsers.set([]);
     this.vacations.set([]);
     this.selectedUserIds.set([]);
+    this.selectedTeamFilter.set(null);
     this.loading.set(false);
     this.saving.set(false);
     this.exporting.set(false);
     this.notifications.clearAll();
+  }
+
+  setTeamFilter(teamId: number | null): void {
+    this.selectedTeamFilter.set(teamId);
   }
 
   loadDashboard(): void {
@@ -120,9 +226,10 @@ export class AdminStateService {
     this.notifications.clearError();
 
     let completed = 0;
+    const totalRequests = 4;
     const finish = (): void => {
       completed += 1;
-      if (completed === 3) {
+      if (completed === totalRequests) {
         this.loading.set(false);
       }
     };
@@ -156,7 +263,27 @@ export class AdminStateService {
       },
     });
 
-    // 2. GET /api/usuarios/pendientes (usuarios con invitación enviada en estado 'proceso')
+    // 2. GET /api/equipos
+    this.api.getTeams(token).subscribe({
+      next: (value) => {
+        const parsedTeams = extractArray(value, ['equipos', 'teams', 'data'])
+          .map((item) => normalizeTeam(item))
+          .filter((team): team is AdminTeam => team !== null);
+
+        this.rawTeams.set(parsedTeams);
+
+        const currentFilter = this.selectedTeamFilter();
+        if (currentFilter !== null && !parsedTeams.some((t) => t.id === currentFilter)) {
+          this.selectedTeamFilter.set(null);
+        }
+        finish();
+      },
+      error: () => {
+        finish();
+      },
+    });
+
+    // 3. GET /api/usuarios/pendientes (usuarios con invitación enviada en estado 'proceso')
     this.api.getPendingUsers(token).subscribe({
       next: (value) => {
         const parsedPending = extractArray(value, ['usuarios', 'users', 'data'])
@@ -176,7 +303,7 @@ export class AdminStateService {
       },
     });
 
-    // 3. GET /api/vacaciones
+    // 4. GET /api/vacaciones
     this.api.getVacations(token).subscribe({
       next: (value) => {
         const parsedVacations = extractArray(value, [
@@ -244,6 +371,85 @@ export class AdminStateService {
         this.saving.set(false);
         this.notifications.showError(
           extractErrorMessage(error, 'No se pudo guardar el usuario.')
+        );
+      },
+    });
+  }
+
+  createTeam(
+    nombre: string,
+    usuarioIds: number[] = [],
+    onSuccess?: (createdTeam?: AdminTeam) => void
+  ): void {
+    const cleanName = nombre.trim();
+    if (!cleanName) {
+      this.notifications.showError('El nombre del equipo no puede estar vacío.');
+      return;
+    }
+
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.createTeam({ nombre: cleanName, usuarioIds }, token).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        const body = asRecord(res);
+        const created = normalizeTeam(body['equipo'] ?? res) ?? undefined;
+        this.notifications.showNotice(`Equipo "${cleanName}" creado correctamente.`);
+        onSuccess?.(created);
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo crear el equipo.')
+        );
+      },
+    });
+  }
+
+  updateTeam(
+    equipoId: number,
+    payload: { nombre?: string; usuarioIds?: number[] },
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.updateTeam(equipoId, payload, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice('Equipo actualizado correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo actualizar el equipo.')
+        );
+      },
+    });
+  }
+
+  deleteTeam(equipoId: number, onSuccess?: () => void): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.deleteTeam(equipoId, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        if (this.selectedTeamFilter() === equipoId) {
+          this.selectedTeamFilter.set(null);
+        }
+        this.notifications.showNotice('Equipo eliminado correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo eliminar el equipo.')
         );
       },
     });
@@ -385,6 +591,7 @@ export class AdminStateService {
   exportVacationsToExcel(
     month: number,
     year: number,
+    equipoId: number | null = null,
     onSuccess?: () => void
   ): void {
     const token = this.auth.token();
@@ -397,12 +604,21 @@ export class AdminStateService {
 
     forkJoin({
       usersRes: this.api.getUsers(token),
-      vacationsRes: this.api.getVacations(token),
+      teamsRes: this.api.getTeams(token).pipe(catchError(() => of({ equipos: [] }))),
+      vacationsRes: this.api.getVacations(token, {
+        mes: month,
+        anio: year,
+        ...(equipoId !== null ? { equipoId } : {}),
+      }),
     }).subscribe({
-      next: ({ usersRes, vacationsRes }) => {
+      next: ({ usersRes, teamsRes, vacationsRes }) => {
         const parsedUsers = extractArray(usersRes, ['usuarios', 'users', 'data'])
           .map((item) => normalizeUser(item))
           .filter((user): user is AdminUser => user !== null);
+
+        const parsedTeams = extractArray(teamsRes, ['equipos', 'teams', 'data'])
+          .map((item) => normalizeTeam(item))
+          .filter((team): team is AdminTeam => team !== null);
 
         const parsedVacations = extractArray(vacationsRes, [
           'vacaciones',
@@ -414,17 +630,35 @@ export class AdminStateService {
         ]).flatMap((item) => normalizeVacationEntry(item));
 
         this.rawUsers.set(parsedUsers);
-        this.vacations.set(parsedVacations);
+        if (parsedTeams.length > 0) {
+          this.rawTeams.set(parsedTeams);
+        }
+
+        const enrichedUsers = this.users();
+        const selectedTeam =
+          equipoId !== null
+            ? (this.teams().find((t) => t.id === equipoId) ?? null)
+            : null;
 
         const userById = new Map<number, AdminUser>();
         const userByName = new Map<string, AdminUser>();
-        for (const user of parsedUsers) {
+        for (const user of enrichedUsers) {
           userById.set(user.id, user);
           const fullName = getUserDisplayName(user).toLowerCase();
           if (fullName) {
             userByName.set(fullName, user);
           }
         }
+
+        const allowedTeamUserIds =
+          equipoId !== null
+            ? new Set<number>([
+                ...(selectedTeam?.usuarioIds ?? []),
+                ...enrichedUsers
+                  .filter((u) => u.equipoIds.includes(equipoId))
+                  .map((u) => u.id),
+              ])
+            : null;
 
         const monthPrefix = `${year}-${String(month).padStart(2, '0')}-`;
         const seenKeys = new Set<string>();
@@ -443,6 +677,11 @@ export class AdminStateService {
             (vacFullNameKey ? userByName.get(vacFullNameKey) : undefined);
 
           const resolvedUserId = matchedUser?.id ?? vac.usuarioId;
+
+          if (allowedTeamUserIds !== null && !allowedTeamUserIds.has(resolvedUserId)) {
+            continue;
+          }
+
           const uniqueKey = `${resolvedUserId}|${vac.fecha}`;
           if (seenKeys.has(uniqueKey)) {
             continue;
@@ -470,14 +709,15 @@ export class AdminStateService {
           return a.nombre.localeCompare(b.nombre, 'es');
         });
 
-        downloadVacationsExcel(rows, month, year);
+        downloadVacationsExcel(rows, month, year, selectedTeam?.nombre ?? null);
         this.exporting.set(false);
 
         const monthName = getMonthLabel(month);
+        const scopeLabel = selectedTeam ? ` (${selectedTeam.nombre})` : '';
         this.notifications.showNotice(
           rows.length > 0
-            ? `Excel de ${monthName} ${year} descargado (${rows.length} ${rows.length === 1 ? 'día exportado' : 'días exportados'}).`
-            : `Excel de ${monthName} ${year} descargado (sin días de vacaciones registrados en ese mes).`
+            ? `Excel de ${monthName} ${year}${scopeLabel} descargado (${rows.length} ${rows.length === 1 ? 'día exportado' : 'días exportados'}).`
+            : `Excel de ${monthName} ${year}${scopeLabel} descargado (sin días de vacaciones registrados en ese mes).`
         );
         onSuccess?.();
       },

@@ -1,0 +1,195 @@
+<app-modal-shell
+  eyebrow="ORGANIZACIÓN DE PERSONAS"
+  title="Gestión de equipos"
+  subtitle="Crea equipos y asigna personas a uno o varios equipos para filtrar el calendario y las exportaciones."
+  (closeModal)="cancel.emit()"
+>
+  <div class="teams-manager">
+    <!-- Columna izquierda: listado de equipos y botón crear -->
+    <aside class="teams-sidebar" aria-label="Equipos registrados">
+      <div class="sidebar-top">
+        <span class="sidebar-label">Equipos ({{ teams().length }})</span>
+        <button
+          type="button"
+          class="btn-new-team"
+          [class.is-active]="activeTeamId() === 'create'"
+          (click)="startCreateTeam()"
+        >
+          ＋ Nuevo equipo
+        </button>
+      </div>
+
+      <div class="teams-list" role="list">
+        @for (team of teams(); track team.id) {
+          <div
+            class="team-item"
+            role="listitem"
+            [class.is-active]="activeTeamId() === team.id"
+            (click)="selectTeamForEdit(team)"
+          >
+            <div class="team-item-main">
+              <strong class="team-item-name">{{ team.nombre }}</strong>
+              <span class="team-item-count">
+                {{ team.usuarioIds.length }}
+                {{ team.usuarioIds.length === 1 ? 'persona' : 'personas' }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn-delete-icon"
+              title="Eliminar equipo"
+              aria-label="Eliminar equipo"
+              [disabled]="saving()"
+              (click)="onDeleteTeam(team, $event)"
+            >
+              ✕
+            </button>
+          </div>
+        } @empty {
+          <div class="teams-empty">
+            <p>Aún no hay equipos creados.</p>
+            <span>Crea el primero desde el formulario contiguo.</span>
+          </div>
+        }
+      </div>
+    </aside>
+
+    <!-- Columna derecha: formulario de creación/edición del equipo y asignación de miembros -->
+    <section class="team-editor">
+      <form class="editor-form" (ngSubmit)="submitTeam()">
+        <div class="editor-header">
+          <span class="editor-mode-badge">
+            {{ activeTeamId() === 'create' ? 'Nuevo equipo' : 'Editando equipo' }}
+          </span>
+          @if (activeTeam(); as currentTeam) {
+            <button
+              type="button"
+              class="btn-delete-text"
+              [disabled]="saving()"
+              (click)="onDeleteTeam(currentTeam)"
+            >
+              Eliminar equipo
+            </button>
+          }
+        </div>
+
+        <label class="field">
+          <span>Nombre del equipo</span>
+          <input
+            type="text"
+            name="teamName"
+            maxlength="120"
+            [ngModel]="teamName()"
+            (ngModelChange)="teamName.set($event)"
+            placeholder="Ej. Desarrollo Frontend, Producto, Marketing…"
+            required
+          />
+        </label>
+
+        <div class="members-section">
+          <div class="members-header">
+            <div>
+              <span class="members-title">
+                Miembros del equipo ({{ selectedUserIds().size }})
+              </span>
+              <p class="members-hint">
+                Un mismo usuario puede pertenecer a varios equipos simultáneamente.
+              </p>
+            </div>
+            <div class="members-quick-actions">
+              <button
+                type="button"
+                class="btn-chip-action"
+                (click)="selectAllFilteredUsers()"
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                class="btn-chip-action"
+                (click)="clearSelectedUsers()"
+              >
+                Ninguno
+              </button>
+            </div>
+          </div>
+
+          @if (users().length > 0) {
+            <input
+              type="search"
+              name="userSearch"
+              class="member-search-input"
+              [ngModel]="userSearch()"
+              (ngModelChange)="userSearch.set($event)"
+              placeholder="Filtrar personas por nombre, cargo o correo…"
+            />
+          }
+
+          <div class="members-checklist" role="group" aria-label="Seleccionar miembros del equipo">
+            @for (user of filteredUsers(); track user.id) {
+              <label
+                class="member-row"
+                [class.is-checked]="isUserSelected(user.id)"
+              >
+                <input
+                  type="checkbox"
+                  [checked]="isUserSelected(user.id)"
+                  (change)="toggleUser(user.id)"
+                />
+                <span
+                  class="member-avatar"
+                  [style.background-color]="userColor(user).bg"
+                  [style.color]="userColor(user).text"
+                >
+                  {{ initials(user) }}
+                </span>
+                <div class="member-info">
+                  <div class="member-name-line">
+                    <strong>{{ displayName(user) }}</strong>
+                    @if (user.cargo) {
+                      <span class="member-role">{{ user.cargo }}</span>
+                    }
+                  </div>
+                  <div class="member-sub-line">
+                    <span class="member-email">{{ user.email }}</span>
+                    @if (user.equipos.length > 0) {
+                      <span class="member-teams-Summary">
+                        · En:
+                        @for (t of user.equipos; track t.id; let last = $last) {
+                          {{ t.nombre }}{{ !last ? ', ' : '' }}
+                        }
+                      </span>
+                    }
+                  </div>
+                </div>
+              </label>
+            } @empty {
+              <div class="members-empty">
+                No se encontraron usuarios con ese criterio.
+              </div>
+            }
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn-secondary" (click)="cancel.emit()">
+            Cerrar
+          </button>
+          <button
+            type="submit"
+            class="btn-primary"
+            [disabled]="saving() || !teamName().trim()"
+          >
+            {{
+              saving()
+                ? 'Guardando…'
+                : activeTeamId() === 'create'
+                  ? 'Crear equipo'
+                  : 'Guardar cambios del equipo'
+            }}
+          </button>
+        </div>
+      </form>
+    </section>
+  </div>
+</app-modal-shell>

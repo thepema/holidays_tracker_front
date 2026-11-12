@@ -1,21 +1,35 @@
 <aside class="team-panel">
   <header class="team-header">
     <div>
-      <p class="eyebrow">GESTIÓN DE USUARIOS</p>
+      <p class="eyebrow">GESTIÓN DE USUARIOS Y EQUIPOS</p>
       <h2>
         <span>Personas</span>
-        <span class="count-pill">{{ users().length }}</span>
+        <span class="count-pill">{{ filteredUsers().length }}</span>
       </h2>
     </div>
-    <button
-      class="btn-add-icon"
-      type="button"
-      (click)="createClick.emit()"
-      aria-label="Crear nuevo usuario"
-      title="Crear nuevo usuario"
-    >
-      ＋ Nuevo
-    </button>
+    <div class="header-actions">
+      <button
+        class="btn-teams-icon"
+        type="button"
+        (click)="manageTeamsClick.emit()"
+        aria-label="Gestionar equipos"
+        title="Crear, editar y asignar equipos"
+      >
+        Equipos
+        @if (teams().length > 0) {
+          <span class="teams-count-badge">{{ teams().length }}</span>
+        }
+      </button>
+      <button
+        class="btn-add-icon"
+        type="button"
+        (click)="createClick.emit()"
+        aria-label="Crear nuevo usuario"
+        title="Crear nuevo usuario"
+      >
+        ＋ Nuevo
+      </button>
+    </div>
   </header>
 
   <div class="team-toolbar">
@@ -38,9 +52,27 @@
           class="search-input"
           [ngModel]="searchTerm()"
           (ngModelChange)="searchTerm.set($event)"
-          placeholder="Buscar por nombre, cargo o email…"
+          placeholder="Buscar por nombre, cargo, equipo o email…"
           aria-label="Buscar usuario"
         />
+
+        @if (teams().length > 0) {
+          <div class="team-filter-bar">
+            <select
+              class="team-filter-select"
+              [ngModel]="selectedTeamFilter() ?? 'all'"
+              (ngModelChange)="onTeamFilterSelect($event)"
+              aria-label="Filtrar por equipo"
+            >
+              <option value="all">Todos los equipos ({{ users().length }})</option>
+              @for (team of teams(); track team.id) {
+                <option [ngValue]="team.id">
+                  {{ team.nombre }} ({{ team.usuarioIds.length }})
+                </option>
+              }
+            </select>
+          </div>
+        }
       </div>
     }
   </div>
@@ -64,6 +96,15 @@
             }
           </div>
           <span class="user-email">{{ user.email }}</span>
+
+          @if (user.equipos.length > 0) {
+            <div class="user-teams-row">
+              @for (team of user.equipos; track team.id) {
+                <span class="user-team-pill">{{ team.nombre }}</span>
+              }
+            </div>
+          }
+
           <div class="user-meta">
             <span class="vacation-pill">{{ yearCount(user.id) }} días este año</span>
             @if (isPending(user)) {
@@ -100,8 +141,8 @@
             ＋ Crear primer usuario
           </button>
         } @else {
-          <strong>Sin resultados para "{{ searchTerm() }}"</strong>
-          <p>Prueba con otro término de búsqueda.</p>
+          <strong>Sin resultados para el filtro actual</strong>
+          <p>Prueba con otro término de búsqueda o cambia el equipo seleccionado.</p>
         }
       </div>
     }
@@ -118,7 +159,7 @@
 >
   @if (menuUser(); as user) {
     <button type="button" role="menuitem" (click)="onEditUser(user)">
-      ✎ Editar perfil
+      ✎ Editar perfil y equipos
     </button>
     <button type="button" role="menuitem" (click)="onAddVacations(user)">
       📅 Añadir vacaciones

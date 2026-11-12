@@ -1,23 +1,41 @@
 <app-modal-shell
   eyebrow="EXPORTACIÓN DE VACACIONES"
   title="Exportar a Excel"
-  subtitle="Descarga el listado de vacaciones de todos los usuarios en formato Excel."
+  subtitle="Descarga el listado de vacaciones de un equipo o de todos los usuarios en formato Excel."
   (closeModal)="cancel.emit()"
 >
   <form class="export-form" (ngSubmit)="submitExport()">
-    <label class="field">
-      <span>Año</span>
-      <select
-        name="year"
-        [ngModel]="selectedYear()"
-        (ngModelChange)="onYearChange($event)"
-        required
-      >
-        @for (year of yearOptions(); track year) {
-          <option [ngValue]="year">{{ year }}</option>
-        }
-      </select>
-    </label>
+    <div class="export-selectors-row">
+      <label class="field">
+        <span>Equipo</span>
+        <select
+          name="team"
+          [ngModel]="selectedTeamId() ?? 'all'"
+          (ngModelChange)="onTeamChange($event)"
+        >
+          <option value="all">Todos los equipos</option>
+          @for (team of teams(); track team.id) {
+            <option [ngValue]="team.id">
+              {{ team.nombre }} ({{ team.usuarioIds.length }})
+            </option>
+          }
+        </select>
+      </label>
+
+      <label class="field">
+        <span>Año</span>
+        <select
+          name="year"
+          [ngModel]="selectedYear()"
+          (ngModelChange)="onYearChange($event)"
+          required
+        >
+          @for (year of yearOptions(); track year) {
+            <option [ngValue]="year">{{ year }}</option>
+          }
+        </select>
+      </label>
+    </div>
 
     <div class="months-grid-section">
       <span class="months-grid-label">Mes</span>
@@ -44,7 +62,11 @@
     <div class="export-summary">
       <span class="summary-icon" aria-hidden="true">📊</span>
       <p>
-        Se consultarán las vacaciones de todos los usuarios para
+        @if (selectedTeamName(); as teamName) {
+          Se consultarán las vacaciones del equipo <strong>{{ teamName }}</strong> para
+        } @else {
+          Se consultarán las vacaciones de <strong>todos los equipos</strong> para
+        }
         <strong>{{ selectedPeriodLabel() }}</strong> y se generará un archivo
         <code>.xlsx</code> con las columnas <strong>Nombre</strong>,
         <strong>Correo</strong> y <strong>Día de vacaciones</strong> (1 fila por día).
