@@ -15,7 +15,13 @@
             <div class="user-meta">
               <strong class="user-name">{{ userFullName() }}</strong>
               <span class="user-sub">
+                @if (profile.codigo) {
+                  {{ profile.codigo }} ·
+                }
                 {{ profile.cargo || profile.email }}
+                @if (profile.oficinaNombre || userOfficeName(); as officeName) {
+                  · 📍 {{ officeName }}
+                }
                 @if (userVacationTypeLabel()) {
                   · {{ userVacationTypeLabel() }}
                 }
@@ -322,6 +328,7 @@
                         [class.is-today]="cell.isToday"
                         [class.is-past]="cell.isPast"
                         [class.is-weekend]="cell.isWeekend"
+                        [class.is-holiday]="cell.isHoliday"
                         [class.is-requested]="cell.isRequested"
                         [class.is-selected]="cell.isSelected"
                         [class.is-drag-preview]="cell.isDragPreview"
@@ -330,14 +337,17 @@
                         [class.is-interactive]="cell.canInteract && isSlideActive(sheet.index)"
                         (mousedown)="onDayMouseDown(cell, sheet.index, $event)"
                         (mouseenter)="onDayMouseEnter(cell)"
+                        [attr.title]="cell.isHoliday ? 'Festivo: ' + (cell.holidayName || 'Día festivo') : null"
                         [attr.aria-label]="
                           'Día ' +
                           cell.dayNumber +
-                          (cell.isRequested
-                            ? ' (Vacaciones ya pedidas)'
-                            : cell.isSelected
-                              ? ' (Seleccionado, pulsa de nuevo para quitar)'
-                              : '')
+                          (cell.isHoliday
+                            ? ' (Día festivo: ' + (cell.holidayName || 'Festivo') + ', no seleccionable)'
+                            : cell.isRequested
+                              ? ' (Vacaciones ya pedidas)'
+                              : cell.isSelected
+                                ? ' (Seleccionado, pulsa de nuevo para quitar)'
+                                : '')
                         "
                       >
                         <div class="cell-top">
@@ -378,6 +388,11 @@
                                 <span class="status-icon">✕</span>
                                 <span class="pill-label">Quitar</span>
                               </span>
+                            </span>
+                          } @else if (cell.isHoliday) {
+                            <span class="status-pill holiday" [attr.title]="'Día festivo: ' + (cell.holidayName || 'Festivo')">
+                              <span class="status-icon">★</span>
+                              <span class="pill-label">{{ cell.holidayName || 'Festivo' }}</span>
                             </span>
                           } @else if (cell.isWeekend) {
                             <span class="weekend-label">
@@ -440,6 +455,10 @@
           <span class="legend-item">
             <span class="legend-swatch selected"></span>
             <span>Seleccionado (clic de nuevo para quitar)</span>
+          </span>
+          <span class="legend-item">
+            <span class="legend-swatch holiday"></span>
+            <span>Día festivo (no seleccionable)</span>
           </span>
           <span class="legend-item">
             <span class="legend-swatch weekend"></span>

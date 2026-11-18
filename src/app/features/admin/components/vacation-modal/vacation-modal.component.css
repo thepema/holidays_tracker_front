@@ -131,3 +131,113 @@
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+.existing-vacations-section {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: grid;
+  gap: 10px;
+}
+
+.existing-header {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.existing-empty {
+  margin: 0;
+  padding: 12px;
+  border-radius: 9px;
+  background: var(--bg-surface-subtle);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.existing-vacations-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.existing-vacation-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 9px 11px;
+  border-radius: 9px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+}
+
+.existing-date-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.existing-date-label {
+  color: var(--text-primary);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.existing-date-meta {
+  color: var(--text-muted);
+  font-size: 11px;
+  text-transform: capitalize;
+}
+
+.btn-delete-day {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  border-radius: 7px;
+  border: 1px solid var(--status-danger-border);
+  background: var(--status-danger-bg);
+  color: var(--status-danger);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-delete-day:hover:not(:disabled) {
+  background: var(--status-danger);
+  border-color: var(--status-danger);
+  color: var(--text-on-accent);
+}
+
+.btn-delete-day:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.picker-warning {
+  margin: 7px 0 0;
+  color: var(--status-danger);
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.holiday-warning-banner {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: var(--status-danger-bg);
+  border: 1px solid var(--status-danger-border);
+  color: var(--status-danger);
+  font-size: 12px;
+}
+
+.holiday-warning-banner ul {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

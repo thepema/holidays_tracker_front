@@ -1,12 +1,15 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { catchError, forkJoin, of } from 'rxjs';
 import {
+  AdminOffice,
   AdminTeam,
   AdminUser,
+  OfficeHoliday,
   UserFormPayload,
   UserTeamBadge,
   getUserDisplayName,
   isUserRequested,
+  normalizeOffice,
   normalizeTeam,
   normalizeUser,
 } from '../models/user.model';
@@ -15,6 +18,7 @@ import {
   VacationExcelRow,
   downloadVacationsExcel,
   getMonthLabel,
+  getVacationDayHours,
 } from '../utils/excel-export';
 import { asRecord, extractArray, extractErrorMessage } from '../utils/http-helpers';
 import { ApiService } from './api.service';
@@ -29,13 +33,68 @@ export class AdminStateService {
 
   private readonly rawUsers = signal<AdminUser[]>([]);
   private readonly rawTeams = signal<AdminTeam[]>([]);
+  private readonly rawOffices = signal<AdminOffice[]>([]);
   readonly pendingUsers = signal<AdminUser[]>([]);
   readonly vacations = signal<VacationDay[]>([]);
-  readonly selectedUserIds = signal<number[]>([]);
   readonly selectedTeamFilter = signal<number | null>(null);
+  readonly selectedOfficeFilter = signal<number | null>(null);
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
   readonly exporting = signal<boolean>(false);
+  readonly deletingVacationId = signal<number | null>(null);
+
+  readonly offices = computed<AdminOffice[]>(() => {
+    const officeMap = new Map<
+      number,
+      {
+        id: number;
+        nombre: string;
+        userSet: Set<number>;
+        calendarios: AdminOffice['calendarios'];
+        festivos: AdminOffice['festivos'];
+      }
+    >();
+
+    for (const o of this.rawOffices()) {
+      officeMap.set(o.id, {
+        id: o.id,
+        nombre: o.nombre,
+        userSet: new Set<number>(o.usuarioIds),
+        calendarios: o.calendarios,
+        festivos: o.festivos,
+      });
+    }
+
+    for (const u of this.rawUsers()) {
+      if (u.oficinaId) {
+        const existing = officeMap.get(u.oficinaId);
+        if (existing) {
+          existing.userSet.add(u.id);
+          if (!existing.nombre && u.oficinaNombre) {
+            existing.nombre = u.oficinaNombre;
+          }
+        } else {
+          officeMap.set(u.oficinaId, {
+            id: u.oficinaId,
+            nombre: u.oficinaNombre || `Oficina #${u.oficinaId}`,
+            userSet: new Set<number>([u.id]),
+            calendarios: [],
+            festivos: [],
+          });
+        }
+      }
+    }
+
+    return [...officeMap.values()]
+      .map((item) => ({
+        id: item.id,
+        nombre: item.nombre,
+        usuarioIds: [...item.userSet],
+        calendarios: item.calendarios,
+        festivos: item.festivos,
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es'));
+  });
 
   readonly teams = computed<AdminTeam[]>(() => {
     const teamMap = new Map<number, { id: number; nombre: string; userSet: Set<number> }>();
@@ -98,6 +157,8 @@ export class AdminStateService {
     const pendingSet = new Set(this.pendingUsers().map((u) => u.id));
     const allTeams = this.teams();
     const teamById = new Map<number, AdminTeam>(allTeams.map((t) => [t.id, t]));
+    const allOffices = this.offices();
+    const officeById = new Map<number, AdminOffice>(allOffices.map((o) => [o.id, o]));
 
     return this.rawUsers().map((user) => {
       const badgeMap = new Map<number, UserTeamBadge>();
@@ -119,8 +180,16 @@ export class AdminStateService {
       );
       const equipoIds = equipos.map((e) => e.id);
 
+      const officeFromUser = user.oficinaId ? officeById.get(user.oficinaId) : undefined;
+      const officeFromList = allOffices.find((o) => o.usuarioIds.includes(user.id));
+      const resolvedOfficeId = user.oficinaId ?? officeFromList?.id ?? null;
+      const resolvedOfficeName =
+        officeFromUser?.nombre ?? officeFromList?.nombre ?? user.oficinaNombre ?? null;
+
       return {
         ...user,
+        oficinaId: resolvedOfficeId,
+        oficinaNombre: resolvedOfficeName,
         equipos,
         equipoIds,
         sesionActiva: !pendingSet.has(user.id) && user.estadoSesion !== 'solicitado',
@@ -130,17 +199,22 @@ export class AdminStateService {
 
   readonly calendarUsers = computed<AdminUser[]>(() => {
     const teamId = this.selectedTeamFilter();
-    const allUsers = this.users();
-    if (teamId === null) {
-      return allUsers;
+    const officeId = this.selectedOfficeFilter();
+    let result = this.users();
+    if (teamId !== null) {
+      result = result.filter((u) => u.equipoIds.includes(teamId));
     }
-    return allUsers.filter((u) => u.equipoIds.includes(teamId));
+    if (officeId !== null) {
+      result = result.filter((u) => u.oficinaId === officeId);
+    }
+    return result;
   });
 
   readonly calendarVacations = computed<VacationDay[]>(() => {
     const teamId = this.selectedTeamFilter();
+    const officeId = this.selectedOfficeFilter();
     const allVacations = this.vacations();
-    if (teamId === null) {
+    if (teamId === null && officeId === null) {
       return allVacations;
     }
 
@@ -157,6 +231,43 @@ export class AdminStateService {
       const vacFullName = `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim().toLowerCase();
       return Boolean(vacFullName && allowedNames.has(vacFullName));
     });
+  });
+
+  readonly calendarHolidays = computed<OfficeHoliday[]>(() => {
+    const officeId = this.selectedOfficeFilter();
+    const teamId = this.selectedTeamFilter();
+    const allOffices = this.offices();
+
+    if (officeId !== null) {
+      return allOffices.find((o) => o.id === officeId)?.festivos ?? [];
+    }
+
+    if (teamId !== null) {
+      const teamUsers = this.users().filter((u) => u.equipoIds.includes(teamId));
+      const officeIds = new Set<number>(
+        teamUsers
+          .map((u) => u.oficinaId)
+          .filter((id): id is number => typeof id === 'number' && id > 0)
+      );
+      if (officeIds.size > 0) {
+        return allOffices
+          .filter((o) => officeIds.has(o.id))
+          .flatMap((o) => o.festivos)
+          .sort(
+            (a, b) =>
+              a.fecha.localeCompare(b.fecha) ||
+              a.oficinaNombre.localeCompare(b.oficinaNombre, 'es')
+          );
+      }
+    }
+
+    return allOffices
+      .flatMap((o) => o.festivos)
+      .sort(
+        (a, b) =>
+          a.fecha.localeCompare(b.fecha) ||
+          a.oficinaNombre.localeCompare(b.oficinaNombre, 'es')
+      );
   });
 
   readonly userCountByYearMap = computed<Map<number, number>>(() => {
@@ -202,18 +313,24 @@ export class AdminStateService {
   reset(): void {
     this.rawUsers.set([]);
     this.rawTeams.set([]);
+    this.rawOffices.set([]);
     this.pendingUsers.set([]);
     this.vacations.set([]);
-    this.selectedUserIds.set([]);
     this.selectedTeamFilter.set(null);
+    this.selectedOfficeFilter.set(null);
     this.loading.set(false);
     this.saving.set(false);
     this.exporting.set(false);
+    this.deletingVacationId.set(null);
     this.notifications.clearAll();
   }
 
   setTeamFilter(teamId: number | null): void {
     this.selectedTeamFilter.set(teamId);
+  }
+
+  setOfficeFilter(officeId: number | null): void {
+    this.selectedOfficeFilter.set(officeId);
   }
 
   loadDashboard(): void {
@@ -226,7 +343,7 @@ export class AdminStateService {
     this.notifications.clearError();
 
     let completed = 0;
-    const totalRequests = 4;
+    const totalRequests = 5;
     const finish = (): void => {
       completed += 1;
       if (completed === totalRequests) {
@@ -241,18 +358,7 @@ export class AdminStateService {
           .map((item) => normalizeUser(item))
           .filter((user): user is AdminUser => user !== null);
 
-        const previousSelected = this.selectedUserIds();
         this.rawUsers.set(parsedUsers);
-
-        if (previousSelected.length === 0) {
-          this.selectedUserIds.set(parsedUsers.map((user) => user.id));
-        } else {
-          const validIds = new Set(parsedUsers.map((user) => user.id));
-          const preserved = previousSelected.filter((id) => validIds.has(id));
-          this.selectedUserIds.set(
-            preserved.length > 0 ? preserved : parsedUsers.map((user) => user.id)
-          );
-        }
         finish();
       },
       error: (error: unknown) => {
@@ -324,23 +430,29 @@ export class AdminStateService {
         finish();
       },
     });
-  }
 
-  toggleUserSelection(userId: number, checked: boolean): void {
-    const current = this.selectedUserIds();
-    if (checked) {
-      this.selectedUserIds.set([...new Set([...current, userId])]);
-    } else {
-      this.selectedUserIds.set(current.filter((id) => id !== userId));
-    }
-  }
+    // 5. GET /api/oficinas
+    this.api.getOffices(token).subscribe({
+      next: (value) => {
+        const parsedOffices = extractArray(value, ['oficinas', 'offices', 'data'])
+          .map((item) => normalizeOffice(item))
+          .filter((office): office is AdminOffice => office !== null);
 
-  selectAllUsers(): void {
-    this.selectedUserIds.set(this.users().map((u) => u.id));
-  }
+        this.rawOffices.set(parsedOffices);
 
-  clearUserSelection(): void {
-    this.selectedUserIds.set([]);
+        const currentOfficeFilter = this.selectedOfficeFilter();
+        if (
+          currentOfficeFilter !== null &&
+          !parsedOffices.some((o) => o.id === currentOfficeFilter)
+        ) {
+          this.selectedOfficeFilter.set(null);
+        }
+        finish();
+      },
+      error: () => {
+        finish();
+      },
+    });
   }
 
   saveUser(
@@ -455,6 +567,198 @@ export class AdminStateService {
     });
   }
 
+  createOffice(
+    nombre: string,
+    usuarioIds: number[] = [],
+    onSuccess?: (createdOffice?: AdminOffice) => void
+  ): void {
+    const cleanName = nombre.trim();
+    if (!cleanName) {
+      this.notifications.showError('El nombre de la oficina no puede estar vacío.');
+      return;
+    }
+
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.createOffice({ nombre: cleanName, usuarioIds }, token).subscribe({
+      next: (res) => {
+        this.saving.set(false);
+        const body = asRecord(res);
+        const created = normalizeOffice(body['oficina'] ?? res) ?? undefined;
+        this.notifications.showNotice(`Oficina "${cleanName}" creada correctamente.`);
+        onSuccess?.(created);
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo crear la oficina.')
+        );
+      },
+    });
+  }
+
+  updateOffice(
+    oficinaId: number,
+    payload: { nombre?: string; usuarioIds?: number[] },
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.updateOffice(oficinaId, payload, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice('Oficina actualizada correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo actualizar la oficina.')
+        );
+      },
+    });
+  }
+
+  deleteOffice(oficinaId: number, onSuccess?: () => void): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.deleteOffice(oficinaId, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        if (this.selectedOfficeFilter() === oficinaId) {
+          this.selectedOfficeFilter.set(null);
+        }
+        this.notifications.showNotice('Oficina eliminada correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo eliminar la oficina.')
+        );
+      },
+    });
+  }
+
+  createOfficeCalendar(
+    oficinaId: number,
+    anio: number,
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.createOfficeCalendar(oficinaId, anio, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice(`Calendario ${anio} habilitado para la oficina.`);
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo crear el calendario anual de la oficina.')
+        );
+      },
+    });
+  }
+
+  deleteOfficeCalendar(
+    oficinaId: number,
+    calendarioId: number,
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.deleteOfficeCalendar(oficinaId, calendarioId, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice('Calendario anual eliminado correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo eliminar el calendario anual.')
+        );
+      },
+    });
+  }
+
+  addOfficeHoliday(
+    oficinaId: number,
+    payload: { fecha: string; nombre: string; anio?: number },
+    onSuccess?: () => void
+  ): void {
+    const cleanDate = payload.fecha.trim();
+    const cleanName = payload.nombre.trim();
+    if (!cleanDate || !cleanName) {
+      this.notifications.showError('Indica la fecha y el nombre del día festivo.');
+      return;
+    }
+
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api
+      .addOfficeHoliday(
+        oficinaId,
+        {
+          fecha: cleanDate,
+          nombre: cleanName,
+          ...(payload.anio ? { anio: payload.anio } : {}),
+        },
+        token
+      )
+      .subscribe({
+        next: () => {
+          this.saving.set(false);
+          this.notifications.showNotice(`Festivo "${cleanName}" (${cleanDate}) añadido.`);
+          onSuccess?.();
+          this.loadDashboard();
+        },
+        error: (error: unknown) => {
+          this.saving.set(false);
+          this.notifications.showError(
+            extractErrorMessage(error, 'No se pudo añadir el día festivo.')
+          );
+        },
+      });
+  }
+
+  deleteOfficeHoliday(
+    oficinaId: number,
+    festivoId: number,
+    onSuccess?: () => void
+  ): void {
+    const token = this.auth.token();
+    this.saving.set(true);
+
+    this.api.deleteOfficeHoliday(oficinaId, festivoId, token).subscribe({
+      next: () => {
+        this.saving.set(false);
+        this.notifications.showNotice('Día festivo eliminado correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.saving.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo eliminar el día festivo.')
+        );
+      },
+    });
+  }
+
   addVacations(
     userId: number,
     rawDatesText: string,
@@ -483,6 +787,36 @@ export class AdminStateService {
       return;
     }
 
+    const weekendDates = dates.filter((date) => {
+      const [y, m, d] = date.split('-').map(Number);
+      const dow = new Date(y, m - 1, d).getDay();
+      return dow === 0 || dow === 6;
+    });
+    if (weekendDates.length > 0) {
+      this.notifications.showError(
+        `No se pueden registrar vacaciones en fin de semana: ${weekendDates.join(', ')}.`
+      );
+      return;
+    }
+
+    const targetUser = this.users().find((u) => u.id === userId);
+    const officeHolidays = targetUser?.oficinaId
+      ? (this.offices().find((o) => o.id === targetUser.oficinaId)?.festivos ?? [])
+      : [];
+    const holidayMap = new Map<string, OfficeHoliday>(
+      officeHolidays.map((h) => [h.fecha, h])
+    );
+    const holidayConflicts = dates
+      .map((date) => holidayMap.get(date))
+      .filter((h): h is OfficeHoliday => Boolean(h));
+    if (holidayConflicts.length > 0) {
+      const details = holidayConflicts.map((h) => `${h.fecha} (${h.nombre})`).join(', ');
+      this.notifications.showError(
+        `No se pueden registrar vacaciones en días festivos de la oficina asignada: ${details}.`
+      );
+      return;
+    }
+
     this.saving.set(true);
     this.api.addVacations(userId, dates, this.auth.token()).subscribe({
       next: () => {
@@ -495,6 +829,30 @@ export class AdminStateService {
         this.saving.set(false);
         this.notifications.showError(
           extractErrorMessage(error, 'No se pudieron registrar las vacaciones.')
+        );
+      },
+    });
+  }
+
+  deleteVacation(vacacionId: number, onSuccess?: () => void): void {
+    const token = this.auth.token();
+    if (!token) {
+      return;
+    }
+
+    this.deletingVacationId.set(vacacionId);
+    this.api.deleteVacationAdmin(vacacionId, token).subscribe({
+      next: () => {
+        this.deletingVacationId.set(null);
+        this.vacations.update((list) => list.filter((v) => v.id !== vacacionId));
+        this.notifications.showNotice('Día de vacaciones eliminado correctamente.');
+        onSuccess?.();
+        this.loadDashboard();
+      },
+      error: (error: unknown) => {
+        this.deletingVacationId.set(null);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo eliminar el día de vacaciones.')
         );
       },
     });
@@ -661,8 +1019,10 @@ export class AdminStateService {
             : null;
 
         const monthPrefix = `${year}-${String(month).padStart(2, '0')}-`;
-        const seenKeys = new Set<string>();
-        const rows: VacationExcelRow[] = [];
+        const groupedByUser = new Map<
+          number,
+          { codigo: string; nombreCompleto: string; dates: Set<string> }
+        >();
 
         for (const vac of parsedVacations) {
           if (!vac.fecha || !vac.fecha.startsWith(monthPrefix)) {
@@ -682,32 +1042,50 @@ export class AdminStateService {
             continue;
           }
 
-          const uniqueKey = `${resolvedUserId}|${vac.fecha}`;
-          if (seenKeys.has(uniqueKey)) {
-            continue;
+          let entry = groupedByUser.get(resolvedUserId);
+          if (!entry) {
+            const codigo = (matchedUser?.codigo || vac.codigo || '').trim() || '-';
+            const nombreCompleto =
+              (matchedUser ? getUserDisplayName(matchedUser) : '') ||
+              `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim() ||
+              `Usuario #${resolvedUserId}`;
+            entry = {
+              codigo,
+              nombreCompleto,
+              dates: new Set<string>(),
+            };
+            groupedByUser.set(resolvedUserId, entry);
+          } else if (entry.codigo === '-') {
+            const candidateCode = (matchedUser?.codigo || vac.codigo || '').trim();
+            if (candidateCode) {
+              entry.codigo = candidateCode;
+            }
           }
-          seenKeys.add(uniqueKey);
 
-          const nombre =
-            (matchedUser ? getUserDisplayName(matchedUser) : '') ||
-            `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim() ||
-            `Usuario #${resolvedUserId}`;
-          const correo = (matchedUser?.email || vac.email || '').trim();
-
-          rows.push({
-            nombre,
-            correo,
-            fecha: vac.fecha,
-          });
+          entry.dates.add(vac.fecha);
         }
 
-        rows.sort((a, b) => {
-          const byDate = a.fecha.localeCompare(b.fecha);
-          if (byDate !== 0) {
-            return byDate;
-          }
-          return a.nombre.localeCompare(b.nombre, 'es');
-        });
+        const rows: VacationExcelRow[] = [...groupedByUser.values()]
+          .map((entry) => {
+            const totalDias = entry.dates.size;
+            const totalHoras = [...entry.dates].reduce(
+              (sum, fecha) => sum + getVacationDayHours(fecha),
+              0
+            );
+            return {
+              codigo: entry.codigo,
+              nombreCompleto: entry.nombreCompleto,
+              totalHoras,
+              totalDias,
+            };
+          })
+          .sort((a, b) => {
+            const byName = a.nombreCompleto.localeCompare(b.nombreCompleto, 'es');
+            if (byName !== 0) {
+              return byName;
+            }
+            return a.codigo.localeCompare(b.codigo, 'es');
+          });
 
         downloadVacationsExcel(rows, month, year, selectedTeam?.nombre ?? null);
         this.exporting.set(false);
@@ -716,7 +1094,7 @@ export class AdminStateService {
         const scopeLabel = selectedTeam ? ` (${selectedTeam.nombre})` : '';
         this.notifications.showNotice(
           rows.length > 0
-            ? `Excel de ${monthName} ${year}${scopeLabel} descargado (${rows.length} ${rows.length === 1 ? 'día exportado' : 'días exportados'}).`
+            ? `Excel de ${monthName} ${year}${scopeLabel} descargado (${rows.length} ${rows.length === 1 ? 'empleado exportado' : 'empleados exportados'}).`
             : `Excel de ${monthName} ${year}${scopeLabel} descargado (sin días de vacaciones registrados en ese mes).`
         );
         onSuccess?.();

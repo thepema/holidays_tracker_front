@@ -1,7 +1,35 @@
 export interface VacationExcelRow {
-  nombre: string;
-  correo: string;
-  fecha: string;
+  codigo: string;
+  nombreCompleto: string;
+  totalHoras: number;
+  totalDias: number;
+}
+
+export function getVacationDayHours(dateKey: string): number {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey.trim());
+  if (!match) {
+    return 0;
+  }
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  if (
+    Number.isNaN(date.getTime()) ||
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return 0;
+  }
+  const dow = date.getDay();
+  if (dow >= 1 && dow <= 4) {
+    return 9;
+  }
+  if (dow === 5) {
+    return 7;
+  }
+  return 0;
 }
 
 export const MONTH_OPTIONS: ReadonlyArray<{ value: number; label: string }> = [
@@ -45,9 +73,10 @@ function escapeXml(value: string): string {
 
 function buildWorksheetXml(rows: VacationExcelRow[]): string {
   const headerCells = [
-    `<c r="A1" t="inlineStr" s="1"><is><t>Nombre</t></is></c>`,
-    `<c r="B1" t="inlineStr" s="1"><is><t>Correo</t></is></c>`,
-    `<c r="C1" t="inlineStr" s="1"><is><t>Día de vacaciones</t></is></c>`,
+    `<c r="A1" t="inlineStr" s="1"><is><t>Código</t></is></c>`,
+    `<c r="B1" t="inlineStr" s="1"><is><t>Nombre y apellidos</t></is></c>`,
+    `<c r="C1" t="inlineStr" s="1"><is><t>Total de horas</t></is></c>`,
+    `<c r="D1" t="inlineStr" s="1"><is><t>Total de días</t></is></c>`,
   ].join('');
 
   const xmlRows: string[] = [`<row r="1" ht="22" customHeight="1">${headerCells}</row>`];
@@ -55,9 +84,10 @@ function buildWorksheetXml(rows: VacationExcelRow[]): string {
   rows.forEach((row, index) => {
     const rowNumber = index + 2;
     const cells = [
-      `<c r="A${rowNumber}" t="inlineStr" s="2"><is><t>${escapeXml(row.nombre)}</t></is></c>`,
-      `<c r="B${rowNumber}" t="inlineStr" s="2"><is><t>${escapeXml(row.correo)}</t></is></c>`,
-      `<c r="C${rowNumber}" t="inlineStr" s="3"><is><t>${escapeXml(row.fecha)}</t></is></c>`,
+      `<c r="A${rowNumber}" t="inlineStr" s="3"><is><t>${escapeXml(row.codigo)}</t></is></c>`,
+      `<c r="B${rowNumber}" t="inlineStr" s="2"><is><t>${escapeXml(row.nombreCompleto)}</t></is></c>`,
+      `<c r="C${rowNumber}" s="3"><v>${row.totalHoras}</v></c>`,
+      `<c r="D${rowNumber}" s="3"><v>${row.totalDias}</v></c>`,
     ].join('');
     xmlRows.push(`<row r="${rowNumber}" ht="19" customHeight="1">${cells}</row>`);
   });
@@ -67,13 +97,14 @@ function buildWorksheetXml(rows: VacationExcelRow[]): string {
   return [
     `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>`,
     `<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">`,
-    `<dimension ref="A1:C${lastRow}"/>`,
+    `<dimension ref="A1:D${lastRow}"/>`,
     `<sheetViews><sheetView tabSelected="1" workbookViewId="0"/></sheetViews>`,
     `<sheetFormatPr defaultRowHeight="18"/>`,
     `<cols>`,
-    `<col min="1" max="1" width="32" customWidth="1"/>`,
+    `<col min="1" max="1" width="18" customWidth="1"/>`,
     `<col min="2" max="2" width="36" customWidth="1"/>`,
-    `<col min="3" max="3" width="20" customWidth="1"/>`,
+    `<col min="3" max="3" width="18" customWidth="1"/>`,
+    `<col min="4" max="4" width="16" customWidth="1"/>`,
     `</cols>`,
     `<sheetData>${xmlRows.join('')}</sheetData>`,
     `</worksheet>`,

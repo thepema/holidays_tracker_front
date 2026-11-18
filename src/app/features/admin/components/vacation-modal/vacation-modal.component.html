@@ -1,10 +1,10 @@
 <app-modal-shell
   eyebrow="PLANIFICACIÓN DE AUSENCIAS"
-  title="Registrar días de vacaciones"
+  title="Gestionar días de vacaciones"
   [subtitle]="
-    'Introduce las fechas para ' +
+    'Añade nuevas fechas o elimina días ya registrados para ' +
     userFullName() +
-    ' con formato YYYY-MM-DD (separadas por comas o espacios).'
+    '.'
   "
   (closeModal)="cancel.emit()"
 >
@@ -22,12 +22,15 @@
         <button
           type="button"
           class="btn-append"
-          [disabled]="!pickerDate()"
+          [disabled]="!pickerDate() || !!pickerHolidayWarning()"
           (click)="appendPickerDate()"
         >
           ＋ Añadir a la lista
         </button>
       </div>
+      @if (pickerHolidayWarning(); as warning) {
+        <p class="picker-warning" role="alert">{{ warning }}</p>
+      }
     </div>
 
     <label class="field">
@@ -37,7 +40,7 @@
       </div>
       <textarea
         name="vacationDates"
-        rows="4"
+        rows="3"
         [ngModel]="vacationDates()"
         (ngModelChange)="vacationDates.set($event)"
         placeholder="2026-08-03, 2026-08-04, 2026-08-05"
@@ -45,11 +48,58 @@
       ></textarea>
     </label>
 
+    @if (datesValidationErrors().length > 0) {
+      <div class="holiday-warning-banner" role="alert">
+        <strong>Fechas no permitidas:</strong>
+        <ul>
+          @for (err of datesValidationErrors(); track err) {
+            <li>{{ err }}</li>
+          }
+        </ul>
+      </div>
+    }
+
     <div class="form-actions">
       <button type="button" class="btn-secondary" (click)="cancel.emit()">Cancelar</button>
-      <button type="submit" class="btn-primary" [disabled]="saving() || !vacationDates().trim()">
+      <button
+        type="submit"
+        class="btn-primary"
+        [disabled]="saving() || !vacationDates().trim() || datesValidationErrors().length > 0"
+      >
         {{ saving() ? 'Guardando…' : 'Guardar días de vacaciones' }}
       </button>
     </div>
   </form>
+
+  <section class="existing-vacations-section" aria-label="Días de vacaciones registrados">
+    <div class="existing-header">
+      <span>Días de vacaciones registrados ({{ sortedUserVacations().length }})</span>
+    </div>
+
+    @if (sortedUserVacations().length === 0) {
+      <p class="existing-empty">Este usuario todavía no tiene días de vacaciones registrados.</p>
+    } @else {
+      <ul class="existing-vacations-list">
+        @for (item of sortedUserVacations(); track item.fecha) {
+          <li class="existing-vacation-row">
+            <div class="existing-date-info">
+              <strong class="existing-date-label">{{ item.formattedDate }}</strong>
+              <span class="existing-date-meta">{{ item.weekday }} · {{ item.fecha }}</span>
+            </div>
+            @if (item.id) {
+              <button
+                type="button"
+                class="btn-delete-day"
+                [disabled]="deletingVacationId() === item.id || saving()"
+                (click)="onDeleteVacation(item)"
+                title="Eliminar este día de vacaciones"
+              >
+                {{ deletingVacationId() === item.id ? 'Eliminando…' : '✕ Eliminar' }}
+              </button>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
 </app-modal-shell>

@@ -11,6 +11,18 @@
       <button
         class="btn-teams-icon"
         type="button"
+        (click)="manageOfficesClick.emit()"
+        aria-label="Gestionar oficinas"
+        title="Crear oficinas y calendarios de festivos"
+      >
+        Oficinas
+        @if (offices().length > 0) {
+          <span class="teams-count-badge">{{ offices().length }}</span>
+        }
+      </button>
+      <button
+        class="btn-teams-icon"
+        type="button"
         (click)="manageTeamsClick.emit()"
         aria-label="Gestionar equipos"
         title="Crear, editar y asignar equipos"
@@ -52,7 +64,7 @@
           class="search-input"
           [ngModel]="searchTerm()"
           (ngModelChange)="searchTerm.set($event)"
-          placeholder="Buscar por nombre, cargo, equipo o email…"
+          placeholder="Buscar por código, nombre, cargo, oficina, equipo o email…"
           aria-label="Buscar usuario"
         />
 
@@ -68,6 +80,24 @@
               @for (team of teams(); track team.id) {
                 <option [ngValue]="team.id">
                   {{ team.nombre }} ({{ team.usuarioIds.length }})
+                </option>
+              }
+            </select>
+          </div>
+        }
+
+        @if (offices().length > 0) {
+          <div class="team-filter-bar">
+            <select
+              class="team-filter-select"
+              [ngModel]="selectedOfficeFilter() ?? 'all'"
+              (ngModelChange)="onOfficeFilterSelect($event)"
+              aria-label="Filtrar por oficina"
+            >
+              <option value="all">Todas las oficinas ({{ users().length }})</option>
+              @for (office of offices(); track office.id) {
+                <option [ngValue]="office.id">
+                  Oficina: {{ office.nombre }} ({{ office.usuarioIds.length }})
                 </option>
               }
             </select>
@@ -91,14 +121,20 @@
         <div class="user-info">
           <div class="user-title-row">
             <strong>{{ displayName(user) }}</strong>
+            @if (user.codigo) {
+              <span class="code-badge">{{ user.codigo }}</span>
+            }
             @if (user.cargo) {
               <span class="role-badge">{{ user.cargo }}</span>
             }
           </div>
           <span class="user-email">{{ user.email }}</span>
 
-          @if (user.equipos.length > 0) {
+          @if (user.equipos.length > 0 || user.oficinaNombre) {
             <div class="user-teams-row">
+              @if (user.oficinaNombre) {
+                <span class="user-office-pill" title="Oficina asignada">📍 {{ user.oficinaNombre }}</span>
+              }
               @for (team of user.equipos; track team.id) {
                 <span class="user-team-pill">{{ team.nombre }}</span>
               }
@@ -162,7 +198,7 @@
       ✎ Editar perfil y equipos
     </button>
     <button type="button" role="menuitem" (click)="onAddVacations(user)">
-      📅 Añadir vacaciones
+      📅 Gestionar vacaciones
     </button>
     @if (!hasActiveSession(user)) {
       <button type="button" role="menuitem" (click)="onResendInvite(user)">

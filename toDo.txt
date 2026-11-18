@@ -1,2 +1,4 @@
--Opción de borrar los dias de vacaciones a los usuarios desde el panel de admin
--Hacer una subdivisión de equipos
+Hablar con Indra
+- Donde alojarlo y servidor de correo
+- posibilidad de conectarlo con el jira
+- ver si podemos hacer la imputación directamente desde la app del jira

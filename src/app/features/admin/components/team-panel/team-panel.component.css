@@ -27,9 +27,11 @@
 .user-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .user-title-row strong { color: var(--text-primary); font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .role-badge { flex-shrink: 0; padding: 1px 6px; border-radius: 5px; background: var(--accent-subtle); color: var(--accent-primary); font-size: 10px; font-weight: 600; }
+.code-badge { flex-shrink: 0; padding: 1px 6px; border-radius: 5px; background: var(--bg-card); border: 1px solid var(--border-strong); color: var(--text-secondary); font-size: 10px; font-weight: 700; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; }
 .user-email { color: var(--text-muted); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .user-teams-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 2px; }
 .user-team-pill { display: inline-flex; align-items: center; padding: 1px 7px; border-radius: 999px; background: var(--accent-soft); color: var(--accent-primary); font-size: 10px; font-weight: 600; }
+.user-office-pill { display: inline-flex; align-items: center; gap: 3px; padding: 1px 7px; border-radius: 999px; background: var(--status-warning-bg); border: 1px solid var(--status-warning-border); color: var(--status-warning); font-size: 10px; font-weight: 700; }
 .user-meta { display: flex; align-items: center; gap: 10px; margin-top: 2px; font-size: 11px; flex-wrap: wrap; }
 .vacation-pill { color: var(--accent-medium); font-weight: 700; }
 .session-status { display: inline-flex; align-items: center; gap: 5px; color: var(--status-success); font-size: 11px; font-weight: 500; }

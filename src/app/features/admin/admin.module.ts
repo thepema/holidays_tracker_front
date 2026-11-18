@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AdminHeaderComponent } from './components/admin-header/admin-header.component';
 import { ConfirmBulkModalComponent } from './components/confirm-bulk-modal/confirm-bulk-modal.component';
 import { ExportExcelModalComponent } from './components/export-excel-modal/export-excel-modal.component';
+import { OfficesModalComponent } from './components/offices-modal/offices-modal.component';
 import { SessionRequestsComponent } from './components/session-requests/session-requests.component';
 import { TeamPanelComponent } from './components/team-panel/team-panel.component';
 import { TeamsModalComponent } from './components/teams-modal/teams-modal.component';
@@ -18,6 +19,7 @@ const ADMIN_COMPONENTS = [
   VacationCalendarComponent,
   TeamPanelComponent,
   TeamsModalComponent,
+  OfficesModalComponent,
   SessionRequestsComponent,
   UserFormModalComponent,
   VacationModalComponent,

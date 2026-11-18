@@ -30,9 +30,11 @@ export class LandingPageComponent {
 
   readonly activeMode = signal<LandingMode>('solicitar');
 
-  // Formulario de Solicitud de Sesión (Nombre + Correo)
-  readonly requestNombre = signal<string>('');
+  // Formulario de Solicitud de Sesión (Correo + Código numérico)
+  readonly requestStep = signal<'form' | 'verify'>('form');
   readonly requestEmail = signal<string>('');
+  readonly verificationCode = signal<string>('');
+  readonly verificationNotice = signal<string>('');
   readonly requestLoading = signal<boolean>(false);
   readonly requestError = signal<string>('');
   readonly requestSuccess = signal<boolean>(false);
@@ -50,11 +52,10 @@ export class LandingPageComponent {
   }
 
   submitSessionRequest(): void {
-    const nombre = this.requestNombre().trim();
     const email = this.requestEmail().trim();
 
-    if (!nombre || !email) {
-      this.requestError.set('Por favor, introduce tu nombre y tu correo electrónico.');
+    if (!email) {
+      this.requestError.set('Por favor, introduce tu correo electrónico.');
       return;
     }
 
@@ -67,9 +68,18 @@ export class LandingPageComponent {
     this.requestError.set('');
     this.requestSuccess.set(false);
 
-    this.api.requestSessionByNameAndEmail(nombre, email).subscribe({
+    this.api.requestSessionByEmail(email).subscribe({
       next: (res) => {
         this.requestLoading.set(false);
+        if (res?.requiereVerificacion !== false && !res?.solicitado) {
+          this.verificationCode.set('');
+          this.verificationNotice.set(
+            res?.mensaje ||
+              'Hemos enviado un código numérico de 6 dígitos a tu correo electrónico.'
+          );
+          this.requestStep.set('verify');
+          return;
+        }
         this.requestSuccess.set(true);
         this.requestSuccessMessage.set(
           res?.mensaje ||
@@ -81,18 +91,83 @@ export class LandingPageComponent {
         this.requestError.set(
           extractErrorMessage(
             err,
-            'No se ha encontrado ningún usuario con ese nombre y correo en la base de datos.'
+            'No se ha encontrado ningún usuario con ese correo electrónico en la base de datos.'
           )
         );
       },
     });
   }
 
-  resetRequestForm(): void {
-    this.requestSuccess.set(false);
+  onVerificationCodeInput(value: string): void {
+    const digitsOnly = String(value ?? '').replace(/\D+/g, '').slice(0, 6);
+    this.verificationCode.set(digitsOnly);
+  }
+
+  submitVerificationCode(): void {
+    const code = this.verificationCode().trim();
+    if (!/^\d{6}$/.test(code)) {
+      this.requestError.set(
+        'Introduce el código numérico de 6 dígitos que has recibido en tu correo.'
+      );
+      return;
+    }
+
+    this.requestLoading.set(true);
     this.requestError.set('');
-    this.requestNombre.set('');
-    this.requestEmail.set('');
+
+    this.api.confirmSessionRequestWithCode(this.requestEmail(), code).subscribe({
+      next: (res) => {
+        this.requestLoading.set(false);
+        this.requestSuccess.set(true);
+        this.requestSuccessMessage.set(
+          res?.mensaje ||
+            'Código verificado. Tu solicitud de sesión ha sido registrada correctamente.'
+        );
+      },
+      error: (err: unknown) => {
+        this.requestLoading.set(false);
+        this.requestError.set(
+          extractErrorMessage(
+            err,
+            'El código numérico introducido no es válido o ha caducado.'
+          )
+        );
+      },
+    });
+  }
+
+  resendVerificationCode(): void {
+    const email = this.requestEmail().trim();
+    if (!email || this.requestLoading()) {
+      return;
+    }
+
+    this.requestLoading.set(true);
+    this.requestError.set('');
+
+    this.api.requestSessionByEmail(email).subscribe({
+      next: (res) => {
+        this.requestLoading.set(false);
+        this.verificationCode.set('');
+        this.verificationNotice.set(
+          res?.mensaje ||
+            'Hemos enviado un nuevo código numérico de 6 dígitos a tu correo electrónico.'
+        );
+      },
+      error: (err: unknown) => {
+        this.requestLoading.set(false);
+        this.requestError.set(
+          extractErrorMessage(err, 'No se pudo reenviar el código de verificación.')
+        );
+      },
+    });
+  }
+
+  backToRequestForm(): void {
+    this.requestStep.set('form');
+    this.verificationCode.set('');
+    this.verificationNotice.set('');
+    this.requestError.set('');
   }
 
   submitRecoveryToken(): void {

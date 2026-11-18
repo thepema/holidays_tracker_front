@@ -11,7 +11,11 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { getVacationTypeLabel } from '../../../../core/models/user.model';
+import {
+  OfficeHoliday,
+  getVacationTypeLabel,
+  normalizeHoliday,
+} from '../../../../core/models/user.model';
 import {
   VacationDay,
   computeInitials,
@@ -32,6 +36,8 @@ export interface UserCalendarDayCell {
   isToday: boolean;
   isPast: boolean;
   isWeekend: boolean;
+  isHoliday: boolean;
+  holidayName?: string;
   isRequested: boolean;
   requestedId?: number;
   isSelected: boolean;
@@ -100,6 +106,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   /** Lista de vacaciones ya pedidas y guardadas en el servidor */
   readonly requestedVacations = signal<VacationDay[]>([]);
 
+  /** Lista de festivos de la oficina del usuario */
+  readonly officeHolidays = signal<OfficeHoliday[]>([]);
+  readonly userOfficeName = signal<string | null>(null);
+
   /** Conjunto de fechas (YYYY-MM-DD) seleccionadas en el calendario pendientes de enviar al servidor */
   readonly selectedDatesSet = signal<ReadonlySet<string>>(new Set<string>());
 
@@ -164,9 +174,19 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     return map;
   });
 
+  readonly holidayByDateMap = computed<ReadonlyMap<string, OfficeHoliday>>(() => {
+    const map = new Map<string, OfficeHoliday>();
+    for (const h of this.officeHolidays()) {
+      if (h.fecha) {
+        map.set(h.fecha, h);
+      }
+    }
+    return map;
+  });
+
   /**
    * Fechas en previsualización mientras se mantiene presionado el click (tras 0.5 s) y se arrastra hacia delante
-   * excluyendo automáticamente fines de semana, fechas pasadas y días ya pedidos.
+   * excluyendo automáticamente fines de semana, festivos de oficina, fechas pasadas y días ya pedidos.
    */
   readonly dragPreviewDatesSet = computed<ReadonlySet<string>>(() => {
     if (!this.isDragging()) {
@@ -183,7 +203,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       start,
       effectiveEnd,
       this.todayKey(),
-      this.requestedByDateMap()
+      this.requestedByDateMap(),
+      this.holidayByDateMap()
     );
     return new Set<string>(range);
   });
@@ -199,6 +220,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const currentMonth = now.getMonth(); // 0 = Enero ... 10 = Noviembre, 11 = Diciembre
     const today = this.todayKey();
     const requestedMap = this.requestedByDateMap();
+    const holidayMap = this.holidayByDateMap();
     const selectedSet = this.selectedDatesSet();
     const previewSet = this.dragPreviewDatesSet();
     const editingItem = this.editingVacation();
@@ -240,6 +262,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         isToday: false,
         isPast: false,
         isWeekend: false,
+        isHoliday: false,
         isRequested: false,
         isSelected: false,
         isDragPreview: false,
@@ -257,6 +280,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         const dateKey = formatDateKey(date);
         const dow = date.getDay();
         const isWeekend = dow === 0 || dow === 6;
+        const holidayObj = holidayMap.get(dateKey);
+        const isHoliday = Boolean(holidayObj);
         const isToday = dateKey === today;
         const isPast = dateKey < today;
         const requestedObj = requestedMap.get(dateKey);
@@ -268,9 +293,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
         if (isRequested) requestedCount++;
         if (isSelected) selectedCount++;
-        if (!isPast && !isWeekend && !isRequested) availableWeekdaysCount++;
+        if (!isPast && !isWeekend && !isHoliday && !isRequested) availableWeekdaysCount++;
 
-        const canInteract = !isPast && !isWeekend && (!isRequested || isEditingOrigin);
+        const canInteract =
+          !isPast && !isWeekend && !isHoliday && (!isRequested || isEditingOrigin);
 
         return {
           date,
@@ -279,6 +305,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
           isToday,
           isPast,
           isWeekend,
+          isHoliday,
+          ...(holidayObj ? { holidayName: holidayObj.nombre } : {}),
           isRequested,
           requestedId: requestedObj?.id,
           isSelected,
@@ -459,6 +487,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   fetchVacations(): void {
     this.loading.set(true);
+    this.fetchHolidays();
     this.api.getUserVacations().subscribe({
       next: (rawResponse: unknown) => {
         const rawList = extractArray(rawResponse, ['vacaciones', 'data', 'items', 'fechas']);
@@ -477,6 +506,26 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         this.notifications.showError(
           extractErrorMessage(err, 'No se pudieron cargar tus días de vacaciones.')
         );
+      },
+    });
+  }
+
+  fetchHolidays(): void {
+    this.api.getUserHolidays().subscribe({
+      next: (rawResponse: unknown) => {
+        if (typeof rawResponse === 'object' && rawResponse !== null) {
+          const rec = rawResponse as Record<string, unknown>;
+          const officeName = String(rec['oficinaNombre'] ?? '').trim();
+          this.userOfficeName.set(officeName || null);
+        }
+        const rawList = extractArray(rawResponse, ['festivos', 'holidays', 'data', 'items']);
+        const parsed = rawList
+          .map((entry) => normalizeHoliday(entry))
+          .filter((h): h is OfficeHoliday => h !== null);
+        this.officeHolidays.set(parsed);
+      },
+      error: () => {
+        // Ignorar si el usuario no tiene oficina asignada
       },
     });
   }
@@ -616,6 +665,12 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       if (cell.isPast || cell.isWeekend) {
         return;
       }
+      if (cell.isHoliday) {
+        this.notifications.showError(
+          `No puedes mover las vacaciones a un día festivo (${cell.holidayName || 'Festivo'}).`
+        );
+        return;
+      }
       if (cell.isRequested && cell.dateKey !== this.editingVacation()?.fecha) {
         this.notifications.showError(
           'No puedes mover las vacaciones a un día que ya tienes pedido.'
@@ -627,7 +682,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    if (cell.isPast || cell.isWeekend) {
+    if (cell.isPast || cell.isWeekend || cell.isHoliday) {
       return;
     }
 
@@ -730,7 +785,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
         startKey,
         currentKey,
         this.todayKey(),
-        this.requestedByDateMap()
+        this.requestedByDateMap(),
+        this.holidayByDateMap()
       );
       if (weekdays.length > 0) {
         const nextSet = new Set(this.selectedDatesSet());
@@ -756,6 +812,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (dateKey < this.todayKey()) {
       return;
     }
+    if (this.holidayByDateMap().has(dateKey)) {
+      this.notifications.showError('No se pueden solicitar vacaciones en un día festivo de tu oficina.');
+      return;
+    }
     if (this.requestedByDateMap().has(dateKey)) {
       this.notifications.showError('No se puede pedir dos veces vacaciones en el mismo día.');
       return;
@@ -779,7 +839,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     startKey: string,
     endKey: string,
     todayKey: string,
-    requestedMap: ReadonlyMap<string, VacationDay>
+    requestedMap: ReadonlyMap<string, VacationDay>,
+    holidayMap: ReadonlyMap<string, OfficeHoliday>
   ): string[] {
     if (endKey < startKey) {
       return [];
@@ -794,7 +855,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       const dow = cursor.getDay();
       const key = formatDateKey(cursor);
       const isWeekend = dow === 0 || dow === 6;
-      if (!isWeekend && key >= todayKey && !requestedMap.has(key)) {
+      if (!isWeekend && key >= todayKey && !requestedMap.has(key) && !holidayMap.has(key)) {
         result.push(key);
       }
       cursor.setDate(cursor.getDate() + 1);
@@ -822,7 +883,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
 
     const requestedMap = this.requestedByDateMap();
-    const validFechas = fechas.filter((f) => !requestedMap.has(f));
+    const holidayMap = this.holidayByDateMap();
+    const validFechas = fechas.filter((f) => !requestedMap.has(f) && !holidayMap.has(f));
     if (validFechas.length === 0) {
       this.notifications.showError(
         'Todos los días seleccionados ya estaban registrados como vacaciones.'
@@ -899,6 +961,14 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     if (dow === 0 || dow === 6) {
       this.notifications.showError(
         'No se pueden asignar vacaciones en fin de semana (sábado o domingo).'
+      );
+      return;
+    }
+
+    const holidayConflict = this.holidayByDateMap().get(newDate);
+    if (holidayConflict) {
+      this.notifications.showError(
+        `No puedes mover las vacaciones al ${newDate} porque es día festivo en tu oficina (${holidayConflict.nombre}).`
       );
       return;
     }

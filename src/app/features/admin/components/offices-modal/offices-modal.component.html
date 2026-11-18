@@ -1,0 +1,349 @@
+<app-modal-shell
+  eyebrow="CALENDARIOS LABORALES"
+  title="Gestión de oficinas y festivos"
+  subtitle="Crea oficinas, vincula personas y configura los días festivos por año para impedir vacaciones en festivo."
+  (closeModal)="cancel.emit()"
+>
+  <div class="offices-manager">
+    <!-- Columna izquierda: listado de oficinas -->
+    <aside class="offices-sidebar" aria-label="Oficinas registradas">
+      <div class="sidebar-top">
+        <span class="sidebar-label">Oficinas ({{ offices().length }})</span>
+        <button
+          type="button"
+          class="btn-new-office"
+          [class.is-active]="activeOfficeId() === 'create'"
+          (click)="startCreateOffice()"
+        >
+          ＋ Nueva oficina
+        </button>
+      </div>
+
+      <div class="offices-list" role="list">
+        @for (office of offices(); track office.id) {
+          <div
+            class="office-item"
+            role="listitem"
+            [class.is-active]="activeOfficeId() === office.id"
+            (click)="selectOfficeForEdit(office)"
+          >
+            <div class="office-item-main">
+              <strong class="office-item-name">{{ office.nombre }}</strong>
+              <span class="office-item-count">
+                {{ office.usuarioIds.length }}
+                {{ office.usuarioIds.length === 1 ? 'persona' : 'personas' }}
+                · {{ office.festivos.length }}
+                {{ office.festivos.length === 1 ? 'festivo' : 'festivos' }}
+              </span>
+            </div>
+            <button
+              type="button"
+              class="btn-delete-icon"
+              title="Eliminar oficina"
+              aria-label="Eliminar oficina"
+              [disabled]="saving()"
+              (click)="onDeleteOffice(office, $event)"
+            >
+              ✕
+            </button>
+          </div>
+        } @empty {
+          <div class="offices-empty">
+            <p>Aún no hay oficinas creadas.</p>
+            <span>Crea la primera desde el formulario contiguo.</span>
+          </div>
+        }
+      </div>
+    </aside>
+
+    <!-- Columna derecha: datos/personas y calendarios/festivos -->
+    <section class="office-editor">
+      <div class="editor-header">
+        <span class="editor-mode-badge">
+          {{ activeOfficeId() === 'create' ? 'Nueva oficina' : 'Editando: ' + activeOffice()?.nombre }}
+        </span>
+
+        @if (activeOffice(); as currentOffice) {
+          <div class="editor-header-right">
+            <div class="editor-tabs" role="tablist" aria-label="Secciones de oficina">
+              <button
+                type="button"
+                role="tab"
+                class="tab-btn"
+                [class.is-active]="activeTab() === 'details'"
+                [attr.aria-selected]="activeTab() === 'details'"
+                (click)="activeTab.set('details')"
+              >
+                Datos y personas ({{ selectedUserIds().size }})
+              </button>
+              <button
+                type="button"
+                role="tab"
+                class="tab-btn"
+                [class.is-active]="activeTab() === 'holidays'"
+                [attr.aria-selected]="activeTab() === 'holidays'"
+                (click)="activeTab.set('holidays')"
+              >
+                Calendarios y festivos ({{ currentOffice.festivos.length }})
+              </button>
+            </div>
+            <button
+              type="button"
+              class="btn-delete-text"
+              [disabled]="saving()"
+              (click)="onDeleteOffice(currentOffice)"
+            >
+              Eliminar
+            </button>
+          </div>
+        }
+      </div>
+
+      @if (activeOfficeId() === 'create' || activeTab() === 'details') {
+        <form class="editor-form" (ngSubmit)="submitOffice()">
+          <label class="field">
+            <span>Nombre de la oficina</span>
+            <input
+              type="text"
+              name="officeName"
+              maxlength="120"
+              [ngModel]="officeName()"
+              (ngModelChange)="officeName.set($event)"
+              placeholder="Ej. Madrid, Barcelona, Remoto España…"
+              required
+            />
+          </label>
+
+          <div class="members-section">
+            <div class="members-header">
+              <div>
+                <span class="members-title">
+                  Personas en esta oficina ({{ selectedUserIds().size }})
+                </span>
+                <p class="members-hint">
+                  Cada persona pertenece a una única oficina. Si estaba en otra, se reasignará.
+                </p>
+              </div>
+              <div class="members-quick-actions">
+                <button
+                  type="button"
+                  class="btn-chip-action"
+                  (click)="selectAllFilteredUsers()"
+                >
+                  Todos
+                </button>
+                <button
+                  type="button"
+                  class="btn-chip-action"
+                  (click)="clearSelectedUsers()"
+                >
+                  Ninguno
+                </button>
+              </div>
+            </div>
+
+            @if (users().length > 0) {
+              <input
+                type="search"
+                name="userSearch"
+                class="member-search-input"
+                [ngModel]="userSearch()"
+                (ngModelChange)="userSearch.set($event)"
+                placeholder="Filtrar personas por código, nombre, cargo o correo…"
+              />
+            }
+
+            <div class="members-checklist" role="group" aria-label="Seleccionar personas de la oficina">
+              @for (user of filteredUsers(); track user.id) {
+                <label
+                  class="member-row"
+                  [class.is-checked]="isUserSelected(user.id)"
+                >
+                  <input
+                    type="checkbox"
+                    [checked]="isUserSelected(user.id)"
+                    (change)="toggleUser(user.id)"
+                  />
+                  <span
+                    class="member-avatar"
+                    [style.background-color]="userColor(user).bg"
+                    [style.color]="userColor(user).text"
+                  >
+                    {{ initials(user) }}
+                  </span>
+                  <div class="member-info">
+                    <div class="member-name-line">
+                      <strong>{{ displayName(user) }}</strong>
+                      @if (user.codigo) {
+                        <span class="member-code">{{ user.codigo }}</span>
+                      }
+                      @if (user.cargo) {
+                        <span class="member-role">{{ user.cargo }}</span>
+                      }
+                    </div>
+                    <div class="member-sub-line">
+                      <span class="member-email">{{ user.email }}</span>
+                      @if (user.oficinaNombre && user.oficinaId !== activeOfficeId()) {
+                        <span class="member-other-office">
+                          · Actualmente en: {{ user.oficinaNombre }}
+                        </span>
+                      }
+                    </div>
+                  </div>
+                </label>
+              } @empty {
+                <div class="members-empty">
+                  No se encontraron usuarios con ese criterio.
+                </div>
+              }
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="cancel.emit()">
+              Cerrar
+            </button>
+            <button
+              type="submit"
+              class="btn-primary"
+              [disabled]="saving() || !officeName().trim()"
+            >
+              {{
+                saving()
+                  ? 'Guardando…'
+                  : activeOfficeId() === 'create'
+                    ? 'Crear oficina'
+                    : 'Guardar cambios'
+              }}
+            </button>
+          </div>
+        </form>
+      } @else if (activeOffice(); as currentOffice) {
+        <div class="holidays-tab">
+          <div class="calendar-year-bar">
+            <label class="year-select-field">
+              <span>Año del calendario</span>
+              <select
+                name="selectedYear"
+                [ngModel]="selectedYear()"
+                (ngModelChange)="onYearChange($event)"
+              >
+                @for (yr of yearOptions(); track yr) {
+                  <option [ngValue]="yr">{{ yr }}</option>
+                }
+              </select>
+            </label>
+
+            @if (activeYearCalendar(); as cal) {
+              <div class="calendar-status-actions">
+                <span class="calendar-exists-badge">
+                  ✓ Calendario {{ cal.anio }} activo ({{ visibleYearHolidays().length }}
+                  {{ visibleYearHolidays().length === 1 ? 'festivo' : 'festivos' }})
+                </span>
+                <button
+                  type="button"
+                  class="btn-delete-text"
+                  [disabled]="saving()"
+                  (click)="onDeleteYearCalendar(cal)"
+                >
+                  Eliminar calendario {{ cal.anio }}
+                </button>
+              </div>
+            } @else {
+              <button
+                type="button"
+                class="btn-enable-calendar"
+                [disabled]="saving()"
+                (click)="onCreateYearCalendar()"
+              >
+                ＋ Habilitar calendario {{ selectedYear() }}
+              </button>
+            }
+          </div>
+
+          <form class="add-holiday-box" (ngSubmit)="submitHoliday()">
+            <p class="add-holiday-title">Añadir día festivo</p>
+            <div class="add-holiday-grid">
+              <label class="field">
+                <span>Fecha</span>
+                <input
+                  type="date"
+                  name="holidayDate"
+                  [ngModel]="holidayDate()"
+                  (ngModelChange)="onHolidayDateChange($event)"
+                  required
+                />
+              </label>
+
+              <label class="field">
+                <span>Nombre del festivo</span>
+                <input
+                  type="text"
+                  name="holidayName"
+                  maxlength="120"
+                  [ngModel]="holidayName()"
+                  (ngModelChange)="holidayName.set($event)"
+                  placeholder="Ej. Día de la Constitución"
+                  required
+                />
+              </label>
+
+              <button
+                type="submit"
+                class="btn-add-holiday"
+                [disabled]="saving() || !holidayDate() || !holidayName().trim()"
+              >
+                ＋ Añadir
+              </button>
+            </div>
+          </form>
+
+          <div class="holidays-list-wrapper">
+            <div class="holidays-list-header">
+              <span>Festivos de {{ currentOffice.nombre }} en {{ selectedYear() }}</span>
+              <span class="holidays-count-pill">{{ visibleYearHolidays().length }}</span>
+            </div>
+
+            @if (visibleYearHolidays().length === 0) {
+              <div class="holidays-empty">
+                <p>No hay días festivos registrados en {{ selectedYear() }} para esta oficina.</p>
+                <span>Añade un festivo arriba (el calendario anual se creará automáticamente si no existe).</span>
+              </div>
+            } @else {
+              <ul class="holidays-list">
+                @for (holiday of visibleYearHolidays(); track holiday.id) {
+                  <li class="holiday-row">
+                    <div class="holiday-info">
+                      <div class="holiday-title-line">
+                        <span class="holiday-star" aria-hidden="true">★</span>
+                        <strong class="holiday-name">{{ holiday.nombre }}</strong>
+                      </div>
+                      <span class="holiday-date-meta">
+                        {{ holiday.formattedDate }} · {{ holiday.weekday }} ({{ holiday.fecha }})
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      class="btn-delete-holiday"
+                      [disabled]="saving()"
+                      (click)="onDeleteHoliday(holiday)"
+                      title="Eliminar día festivo"
+                    >
+                      ✕ Eliminar
+                    </button>
+                  </li>
+                }
+              </ul>
+            }
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" (click)="cancel.emit()">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      }
+    </section>
+  </div>
+</app-modal-shell>

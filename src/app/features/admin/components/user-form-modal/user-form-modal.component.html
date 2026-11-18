@@ -9,6 +9,17 @@
   (closeModal)="cancel.emit()"
 >
   <form class="user-form" (ngSubmit)="submitForm()">
+    <label class="field full-row">
+      <span>Código de usuario</span>
+      <input
+        name="codigo"
+        [ngModel]="form().codigo"
+        (ngModelChange)="updateField('codigo', $event)"
+        placeholder="Ej. EMP-001"
+        required
+      />
+    </label>
+
     <label class="field">
       <span>Nombre</span>
       <input
@@ -68,6 +79,60 @@
         }
       </select>
     </label>
+
+    <div class="field full-row teams-field">
+      <div class="teams-field-header">
+        <div>
+          <span>Oficina (Calendario de festivos)</span>
+          <small class="teams-field-hint">
+            Los festivos de la oficina seleccionada bloquearán vacaciones en esas fechas.
+          </small>
+        </div>
+        <button
+          type="button"
+          class="btn-quick-team-toggle"
+          (click)="showQuickOfficeInput.set(!showQuickOfficeInput())"
+        >
+          {{ showQuickOfficeInput() ? 'Cancelar' : '＋ Crear oficina' }}
+        </button>
+      </div>
+
+      @if (showQuickOfficeInput()) {
+        <div class="quick-team-row">
+          <input
+            type="text"
+            name="quickOfficeName"
+            maxlength="120"
+            [ngModel]="newOfficeName()"
+            (ngModelChange)="newOfficeName.set($event)"
+            placeholder="Nombre de la nueva oficina…"
+            (keydown.enter)="$event.preventDefault(); submitQuickOffice()"
+          />
+          <button
+            type="button"
+            class="btn-quick-team-save"
+            [disabled]="saving() || !newOfficeName().trim()"
+            (click)="submitQuickOffice()"
+          >
+            Añadir
+          </button>
+        </div>
+      }
+
+      <select
+        name="oficinaId"
+        [ngModel]="form().oficinaId"
+        (ngModelChange)="updateOfficeId($event)"
+      >
+        <option [ngValue]="null">Sin oficina asignada</option>
+        @for (office of offices(); track office.id) {
+          <option [ngValue]="office.id">
+            {{ office.nombre }} ({{ office.festivos.length }}
+            {{ office.festivos.length === 1 ? 'festivo' : 'festivos' }})
+          </option>
+        }
+      </select>
+    </div>
 
     <div class="field full-row teams-field">
       <div class="teams-field-header">
@@ -134,7 +199,7 @@
 
     <div class="form-actions full-row">
       <button type="button" class="btn-secondary" (click)="cancel.emit()">Cancelar</button>
-      <button type="submit" class="btn-primary" [disabled]="saving() || !isVacationTypeValid()">
+      <button type="submit" class="btn-primary" [disabled]="saving() || !isFormValid()">
         {{
           saving()
             ? 'Guardando…'

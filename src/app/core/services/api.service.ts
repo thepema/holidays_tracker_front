@@ -9,11 +9,14 @@ export type { AdminUser, UserFormPayload };
 export interface SessionActivationResponse {
   usuario: {
     id: number;
+    codigo?: string;
     nombre: string;
     apellidos: string;
     email: string;
     cargo: string;
     tipo_vacaciones: string;
+    oficinaId?: number | null;
+    oficinaNombre?: string | null;
   };
   token: string;
   codigoRecuperacion: string;
@@ -67,14 +70,6 @@ export class ApiService {
     return this.http.patch(`${this.baseUrl}/api/usuarios/${userId}`, user, { headers: this.auth(token) });
   }
 
-  updateUserTeams(userId: number, equipoIds: number[], token?: string): Observable<unknown> {
-    return this.http.put(
-      `${this.baseUrl}/api/usuarios/${userId}/equipos`,
-      { equipoIds },
-      { headers: this.auth(token) }
-    );
-  }
-
   getTeams(token?: string): Observable<unknown> {
     return this.http.get(`${this.baseUrl}/api/equipos`, { headers: this.auth(token) });
   }
@@ -98,6 +93,72 @@ export class ApiService {
 
   deleteTeam(equipoId: number, token?: string): Observable<unknown> {
     return this.http.delete(`${this.baseUrl}/api/equipos/${equipoId}`, {
+      headers: this.auth(token),
+    });
+  }
+
+  getOffices(token?: string): Observable<unknown> {
+    return this.http.get(`${this.baseUrl}/api/oficinas`, { headers: this.auth(token) });
+  }
+
+  createOffice(
+    payload: { nombre: string; usuarioIds?: number[] },
+    token?: string
+  ): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/api/oficinas`, payload, { headers: this.auth(token) });
+  }
+
+  updateOffice(
+    oficinaId: number,
+    payload: { nombre?: string; usuarioIds?: number[] },
+    token?: string
+  ): Observable<unknown> {
+    return this.http.patch(`${this.baseUrl}/api/oficinas/${oficinaId}`, payload, {
+      headers: this.auth(token),
+    });
+  }
+
+  deleteOffice(oficinaId: number, token?: string): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/api/oficinas/${oficinaId}`, {
+      headers: this.auth(token),
+    });
+  }
+
+  createOfficeCalendar(oficinaId: number, anio: number, token?: string): Observable<unknown> {
+    return this.http.post(
+      `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios`,
+      { anio },
+      { headers: this.auth(token) }
+    );
+  }
+
+  deleteOfficeCalendar(
+    oficinaId: number,
+    calendarioId: number,
+    token?: string
+  ): Observable<unknown> {
+    return this.http.delete(
+      `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios/${calendarioId}`,
+      { headers: this.auth(token) }
+    );
+  }
+
+  addOfficeHoliday(
+    oficinaId: number,
+    payload: { fecha: string; nombre: string; anio?: number },
+    token?: string
+  ): Observable<unknown> {
+    return this.http.post(`${this.baseUrl}/api/oficinas/${oficinaId}/festivos`, payload, {
+      headers: this.auth(token),
+    });
+  }
+
+  deleteOfficeHoliday(
+    oficinaId: number,
+    festivoId: number,
+    token?: string
+  ): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/api/oficinas/${oficinaId}/festivos/${festivoId}`, {
       headers: this.auth(token),
     });
   }
@@ -126,6 +187,12 @@ export class ApiService {
     return this.http.post(`${this.baseUrl}/api/vacaciones`, { usuarioId, fechas }, { headers: this.auth(token) });
   }
 
+  deleteVacationAdmin(vacacionId: number, token?: string): Observable<unknown> {
+    return this.http.delete(`${this.baseUrl}/api/vacaciones/${vacacionId}`, {
+      headers: this.auth(token),
+    });
+  }
+
   sendBulkInvitations(token?: string): Observable<unknown> {
     return this.http.post(`${this.baseUrl}/api/sesiones/invitaciones`, {}, { headers: this.auth(token) });
   }
@@ -136,10 +203,6 @@ export class ApiService {
 
   closeSession(usuarioId: number, token?: string): Observable<unknown> {
     return this.http.post(`${this.baseUrl}/api/sesiones/cerrar`, { usuarioId }, { headers: this.auth(token) });
-  }
-
-  requestSession(usuarioId: number, token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/sesiones/solicitar`, { usuarioId }, { headers: this.auth(token) });
   }
 
   requestSessionByEmailOrCode(identificador: string): Observable<unknown> {
@@ -184,17 +247,37 @@ export class ApiService {
 
   /**
    * POST /api/sesiones/solicitar
-   * Cruza nombre y correo con la base de datos y registra la sesión como 'solicitado'.
+   * Verifica el correo con la base de datos y envía un código numérico de verificación por email.
    */
-  requestSessionByNameAndEmail(
-    nombre: string,
+  requestSessionByEmail(
     email: string
-  ): Observable<{ solicitado?: boolean; mensaje?: string }> {
-    return this.http.post<{ solicitado?: boolean; mensaje?: string }>(
+  ): Observable<{ requiereVerificacion?: boolean; solicitado?: boolean; mensaje?: string }> {
+    return this.http.post<{
+      requiereVerificacion?: boolean;
+      solicitado?: boolean;
+      mensaje?: string;
+    }>(
       `${this.baseUrl}/api/sesiones/solicitar`,
       {
-        nombre: nombre.trim(),
         email: email.trim(),
+      },
+      { withCredentials: true }
+    );
+  }
+
+  /**
+   * POST /api/sesiones/solicitar/confirmar
+   * Verifica el código numérico recibido en el correo para completar el reseteo y solicitud de sesión.
+   */
+  confirmSessionRequestWithCode(
+    email: string,
+    codigoVerificacion: string
+  ): Observable<{ solicitado?: boolean; mensaje?: string }> {
+    return this.http.post<{ solicitado?: boolean; mensaje?: string }>(
+      `${this.baseUrl}/api/sesiones/solicitar/confirmar`,
+      {
+        email: email.trim(),
+        codigoVerificacion: codigoVerificacion.trim(),
       },
       { withCredentials: true }
     );
@@ -206,6 +289,14 @@ export class ApiService {
    */
   getUserVacations(): Observable<unknown> {
     return this.http.get(`${this.baseUrl}/api/vacaciones`, { withCredentials: true });
+  }
+
+  /**
+   * GET /api/festivos (usuario autenticado)
+   * Obtiene los días festivos de la oficina vinculada al usuario de la sesión activa.
+   */
+  getUserHolidays(): Observable<unknown> {
+    return this.http.get(`${this.baseUrl}/api/festivos`, { withCredentials: true });
   }
 
   /**

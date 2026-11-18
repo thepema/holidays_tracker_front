@@ -192,6 +192,64 @@
   letter-spacing: 0.02em;
 }
 
+.otp-input {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: 0.45em;
+  text-align: center;
+  padding: 0.85rem 1rem;
+}
+
+.verify-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.9rem 1rem;
+  border-radius: 10px;
+  background: var(--accent-subtle);
+  border: 1px solid var(--accent-soft);
+}
+
+.verify-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-primary);
+}
+
+.verify-notice-text {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.verify-email-chip {
+  display: inline-flex;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-primary);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.verify-secondary-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.verify-secondary-actions .btn-secondary {
+  flex: 1 1 150px;
+}
+
 .alert-error {
   display: flex;
   align-items: flex-start;

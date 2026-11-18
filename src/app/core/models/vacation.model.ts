@@ -1,3 +1,5 @@
+import { OfficeHoliday } from './user.model';
+
 export interface UserColorPalette {
   bg: string;
   text: string;
@@ -10,6 +12,7 @@ export interface VacationDay {
   usuarioId: number;
   fecha: string;
   anio?: number;
+  codigo?: string;
   nombre?: string;
   apellidos?: string;
   cargo?: string;
@@ -18,6 +21,8 @@ export interface VacationDay {
 
 export interface CalendarVacationUser {
   usuarioId: number;
+  vacacionId?: number;
+  codigo?: string;
   nombre: string;
   apellidos: string;
   fullName: string;
@@ -33,6 +38,8 @@ export interface CalendarDayCell {
   dateKey: string | null;
   isToday: boolean;
   isWeekend: boolean;
+  isHoliday: boolean;
+  holidays: OfficeHoliday[];
   vacationCount: number;
   userNames: string[];
   users: CalendarVacationUser[];
@@ -151,6 +158,9 @@ export function normalizeVacationEntry(value: unknown): VacationDay[] {
         ? (item['user'] as Record<string, unknown>)
         : {};
 
+  const codigo = String(
+    item['codigo'] ?? item['code'] ?? nestedUser['codigo'] ?? nestedUser['code'] ?? ''
+  ).trim();
   const nombre = String(
     item['nombre'] ?? item['name'] ?? nestedUser['nombre'] ?? nestedUser['name'] ?? ''
   ).trim();
@@ -219,13 +229,22 @@ export function normalizeVacationEntry(value: unknown): VacationDay[] {
             (entry as Record<string, unknown>)['date'] ??
             (entry as Record<string, unknown>)['dia'])
           : entry;
+      const entryIdRaw =
+        typeof entry === 'object' && entry !== null
+          ? Number((entry as Record<string, unknown>)['id'])
+          : undefined;
+      const resolvedId =
+        entryIdRaw !== undefined && Number.isFinite(entryIdRaw) && entryIdRaw > 0
+          ? entryIdRaw
+          : id;
       const fecha = normalizeDateKey(rawDateValue);
       if (fecha) {
         results.push({
-          id,
+          id: resolvedId,
           usuarioId,
           fecha,
           anio: anio ?? Number(fecha.slice(0, 4)),
+          ...(codigo ? { codigo } : {}),
           ...(nombre ? { nombre } : {}),
           ...(apellidos ? { apellidos } : {}),
           ...(cargo ? { cargo } : {}),
@@ -248,17 +267,13 @@ export function normalizeVacationEntry(value: unknown): VacationDay[] {
       usuarioId,
       fecha,
       anio: anio ?? Number(fecha.slice(0, 4)),
+      ...(codigo ? { codigo } : {}),
       ...(nombre ? { nombre } : {}),
       ...(apellidos ? { apellidos } : {}),
       ...(cargo ? { cargo } : {}),
       ...(email ? { email } : {}),
     },
   ];
-}
-
-export function normalizeVacation(value: unknown): VacationDay | null {
-  const list = normalizeVacationEntry(value);
-  return list[0] ?? null;
 }
 
 export function formatDateKey(date: Date): string {

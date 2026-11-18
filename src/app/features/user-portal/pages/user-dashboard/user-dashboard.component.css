@@ -983,6 +983,16 @@
   cursor: not-allowed;
 }
 
+.calendar-cell.is-holiday {
+  background: var(--status-warning-bg);
+  border-color: var(--status-warning-border);
+  cursor: not-allowed;
+}
+
+.calendar-cell.is-holiday.is-past {
+  opacity: 0.6;
+}
+
 .calendar-cell.is-past {
   opacity: 0.45;
   background: var(--bg-surface-subtle);
@@ -1154,6 +1164,11 @@
   color: var(--accent-primary);
 }
 
+.status-pill.holiday {
+  background: var(--status-warning);
+  color: #ffffff;
+}
+
 .weekend-label {
   font-size: 9.5px;
   color: var(--text-subtle);
@@ -1232,6 +1247,11 @@
 .legend-swatch.weekend {
   background: var(--bg-surface-subtle);
   border: 1px solid var(--border-strong);
+}
+
+.legend-swatch.holiday {
+  background: var(--status-warning-bg);
+  border: 1.5px solid var(--status-warning);
 }
 
 /* ========================================================================== */

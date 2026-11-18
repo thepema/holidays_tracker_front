@@ -58,19 +58,29 @@
           [users]="state.calendarUsers()"
           [vacations]="state.calendarVacations()"
           [teams]="state.teams()"
+          [offices]="state.offices()"
+          [holidays]="state.calendarHolidays()"
           [selectedTeamId]="state.selectedTeamFilter()"
+          [selectedOfficeId]="state.selectedOfficeFilter()"
+          [deletingVacationId]="state.deletingVacationId()"
           (teamFilterChange)="state.setTeamFilter($event)"
+          (officeFilterChange)="state.setOfficeFilter($event)"
+          (deleteVacation)="handleDeleteVacationFromCalendar($event)"
         />
 
         <app-team-panel
           [users]="state.users()"
           [teams]="state.teams()"
+          [offices]="state.offices()"
           [selectedTeamFilter]="state.selectedTeamFilter()"
+          [selectedOfficeFilter]="state.selectedOfficeFilter()"
           [pendingCount]="state.pendingUsers().length"
           [userYearCounts]="state.userCountByYearMap()"
           (createClick)="openCreateUserModal()"
           (manageTeamsClick)="openTeamsModal()"
+          (manageOfficesClick)="openOfficesModal()"
           (teamFilterChange)="state.setTeamFilter($event)"
+          (officeFilterChange)="state.setOfficeFilter($event)"
           (bulkInviteClick)="openConfirmBulkModal()"
           (editUser)="openEditUserModal($event)"
           (addVacations)="openVacationsModal($event)"
@@ -109,9 +119,11 @@
     [mode]="activeModal() === 'edit' ? 'edit' : 'create'"
     [initialUser]="selectedUserForModal()"
     [teams]="state.teams()"
+    [offices]="state.offices()"
     [saving]="state.saving()"
     (save)="handleSaveUser($event)"
     (createTeamQuick)="handleQuickCreateTeam($event)"
+    (createOfficeQuick)="handleQuickCreateOffice($event)"
     (cancel)="closeModal()"
   />
 }
@@ -128,11 +140,31 @@
   />
 }
 
+@if (activeModal() === 'offices') {
+  <app-offices-modal
+    [offices]="state.offices()"
+    [users]="state.users()"
+    [saving]="state.saving()"
+    (createOffice)="handleCreateOffice($event)"
+    (updateOffice)="handleUpdateOffice($event)"
+    (deleteOffice)="handleDeleteOffice($event)"
+    (createCalendar)="handleCreateOfficeCalendar($event)"
+    (deleteCalendar)="handleDeleteOfficeCalendar($event)"
+    (addHoliday)="handleAddOfficeHoliday($event)"
+    (deleteHoliday)="handleDeleteOfficeHoliday($event)"
+    (cancel)="closeModal()"
+  />
+}
+
 @if (activeModal() === 'vacations' && selectedUserForModal(); as targetUser) {
   <app-vacation-modal
     [user]="targetUser"
+    [userVacations]="selectedUserVacations()"
+    [userHolidays]="selectedUserHolidays()"
     [saving]="state.saving()"
+    [deletingVacationId]="state.deletingVacationId()"
     (saveDates)="handleSaveVacations($event)"
+    (deleteVacation)="handleDeleteVacationFromModal($event)"
     (cancel)="closeModal()"
   />
 }

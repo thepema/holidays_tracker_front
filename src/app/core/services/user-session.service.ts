@@ -2,11 +2,14 @@ import { Injectable, computed, signal } from '@angular/core';
 
 export interface UserSessionProfile {
   id: number;
+  codigo?: string;
   nombre: string;
   apellidos: string;
   email: string;
   cargo: string;
   tipo_vacaciones: string;
+  oficinaId?: number | null;
+  oficinaNombre?: string | null;
 }
 
 const USER_TOKEN_STORAGE_KEY = 'holidays_tracker_user_session_token';

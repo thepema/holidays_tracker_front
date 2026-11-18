@@ -47,6 +47,9 @@
             <div class="user-details">
               <div class="name-line">
                 <strong>{{ displayName(user) }}</strong>
+                @if (user.codigo) {
+                  <span class="role-chip">{{ user.codigo }}</span>
+                }
                 @if (user.cargo) {
                   <span class="role-chip">{{ user.cargo }}</span>
                 }
@@ -108,6 +111,9 @@
             <div class="user-details">
               <div class="name-line">
                 <strong>{{ displayName(user) }}</strong>
+                @if (user.codigo) {
+                  <span class="role-chip">{{ user.codigo }}</span>
+                }
                 @if (user.cargo) {
                   <span class="role-chip">{{ user.cargo }}</span>
                 }

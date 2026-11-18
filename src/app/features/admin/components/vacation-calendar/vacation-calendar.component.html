@@ -4,9 +4,12 @@
       <p class="eyebrow">PLANIFICACIÓN</p>
       <h2>Calendario de vacaciones</h2>
       <p class="subtitle">
-        Pulsa sobre cualquier día con vacaciones para ver el detalle de los usuarios
+        Pulsa sobre cualquier día con vacaciones o festivos para ver el detalle
         @if (selectedTeamName(); as teamName) {
           · Equipo: <strong>{{ teamName }}</strong>
+        }
+        @if (selectedOfficeName(); as officeName) {
+          · Oficina: <strong>{{ officeName }}</strong>
         }
         @if (monthVacationDaysCount() > 0) {
           · <strong>{{ monthVacationDaysCount() }}</strong>
@@ -16,6 +19,26 @@
     </div>
 
     <div class="header-controls-group">
+      @if (offices().length > 0) {
+        <div class="team-filter-control">
+          <label class="filter-label" for="calendar-office-filter">Oficina</label>
+          <select
+            id="calendar-office-filter"
+            class="calendar-team-select"
+            [ngModel]="selectedOfficeId() ?? 'all'"
+            (ngModelChange)="onOfficeSelectChange($event)"
+            aria-label="Filtrar calendario por oficina"
+          >
+            <option value="all">Todas las oficinas</option>
+            @for (office of offices(); track office.id) {
+              <option [ngValue]="office.id">
+                {{ office.nombre }} ({{ office.usuarioIds.length }})
+              </option>
+            }
+          </select>
+        </div>
+      }
+
       <div class="team-filter-control">
         <label class="filter-label" for="calendar-team-filter">Equipo</label>
         <select
@@ -70,10 +93,12 @@
 
       @for (cell of calendarCells(); track $index) {
         @if (cell.date) {
-          @if (cell.vacationCount > 0) {
+          @if (cell.vacationCount > 0 || cell.isHoliday) {
             <button
               type="button"
-              class="calendar-cell has-vacations"
+              class="calendar-cell"
+              [class.has-vacations]="cell.vacationCount > 0"
+              [class.is-holiday]="cell.isHoliday"
               [class.is-today]="cell.isToday"
               [class.is-weekend]="cell.isWeekend"
               [class.is-selected]="selectedDateKey() === cell.dateKey"
@@ -81,10 +106,10 @@
               [attr.aria-label]="
                 'Día ' +
                 cell.dayNumber +
-                ', ' +
-                cell.vacationCount +
-                ' de vacaciones: ' +
-                cell.userNames.join(', ')
+                (cell.isHoliday ? ', festivo: ' + holidayTooltip(cell.holidays) : '') +
+                (cell.vacationCount > 0
+                  ? ', ' + cell.vacationCount + ' de vacaciones: ' + cell.userNames.join(', ')
+                  : '')
               "
               [attr.aria-pressed]="selectedDateKey() === cell.dateKey"
             >
@@ -95,32 +120,42 @@
                 }
               </div>
 
-              <div class="cell-bubbles">
-                @for (user of cell.users.slice(0, 3); track user.usuarioId) {
-                  <span
-                    class="user-bubble"
-                    [style.background-color]="user.color.bg"
-                    [style.color]="user.color.text"
-                    [style.border-color]="user.color.border"
-                    [attr.title]="user.fullName + (user.cargo ? ' · ' + user.cargo : '')"
-                  >
-                    {{ user.initials }}
+              @if (cell.isHoliday) {
+                <div class="cell-holidays">
+                  <span class="holiday-tag" [attr.title]="holidayTooltip(cell.holidays)">
+                    ★ {{ cell.holidays[0].nombre }}{{ cell.holidays.length > 1 ? ' +' + (cell.holidays.length - 1) : '' }}
                   </span>
-                }
-                @if (cell.users.length > 3) {
-                  <span
-                    class="user-bubble more-bubble"
-                    [attr.title]="
-                      '+' +
-                      (cell.users.length - 3) +
-                      ' restantes: ' +
-                      cell.userNames.slice(3).join(', ')
-                    "
-                  >
-                    +{{ cell.users.length - 3 }}
-                  </span>
-                }
-              </div>
+                </div>
+              }
+
+              @if (cell.vacationCount > 0) {
+                <div class="cell-bubbles">
+                  @for (user of cell.users.slice(0, 3); track user.usuarioId) {
+                    <span
+                      class="user-bubble"
+                      [style.background-color]="user.color.bg"
+                      [style.color]="user.color.text"
+                      [style.border-color]="user.color.border"
+                      [attr.title]="user.fullName + (user.cargo ? ' · ' + user.cargo : '')"
+                    >
+                      {{ user.initials }}
+                    </span>
+                  }
+                  @if (cell.users.length > 3) {
+                    <span
+                      class="user-bubble more-bubble"
+                      [attr.title]="
+                        '+' +
+                        (cell.users.length - 3) +
+                        ' restantes: ' +
+                        cell.userNames.slice(3).join(', ')
+                      "
+                    >
+                      +{{ cell.users.length - 3 }}
+                    </span>
+                  }
+                </div>
+              }
             </button>
           } @else {
             <div
@@ -177,6 +212,22 @@
         </button>
       </header>
 
+      @if (activeCell.isHoliday) {
+        <div class="detail-holidays-box">
+          <span class="detail-holidays-label">Días festivos de oficina en esta fecha:</span>
+          <div class="detail-holidays-chips">
+            @for (h of activeCell.holidays; track h.id + '-' + h.oficinaId) {
+              <span class="detail-holiday-chip">
+                ★ <strong>{{ h.nombre }}</strong>
+                @if (h.oficinaNombre) {
+                  <span class="detail-holiday-office">· {{ h.oficinaNombre }}</span>
+                }
+              </span>
+            }
+          </div>
+        </div>
+      }
+
       @if (activeCell.users.length > 0) {
         <div class="detail-users-grid">
           @for (user of activeCell.users; track user.usuarioId) {
@@ -192,6 +243,9 @@
               <div class="detail-user-info">
                 <div class="detail-user-name-row">
                   <strong>{{ user.fullName }}</strong>
+                  @if (user.codigo) {
+                    <span class="detail-user-code">{{ user.codigo }}</span>
+                  }
                   @if (user.cargo) {
                     <span class="detail-user-role">{{ user.cargo }}</span>
                   }
@@ -209,10 +263,21 @@
                   <span class="detail-user-status">Ausencia por vacaciones registrada</span>
                 }
               </div>
+              @if (user.vacacionId) {
+                <button
+                  type="button"
+                  class="btn-delete-vacation"
+                  [disabled]="deletingVacationId() === user.vacacionId"
+                  (click)="onDeleteUserVacation(user, activeCell.dateKey)"
+                  title="Eliminar este día de vacaciones"
+                >
+                  {{ deletingVacationId() === user.vacacionId ? 'Eliminando…' : '✕ Eliminar' }}
+                </button>
+              }
             </article>
           }
         </div>
-      } @else {
+      } @else if (!activeCell.isHoliday) {
         <div class="detail-empty">
           <span>No hay ningún usuario de vacaciones en esta fecha.</span>
         </div>
@@ -246,6 +311,12 @@
         }}
       </span>
     }
-    <span class="legend-hint">Pulsa en un día con vacaciones para ver los usuarios</span>
+    <div class="legend-right-meta">
+      <span class="legend-holiday-chip">
+        <span class="legend-holiday-swatch"></span>
+        <span>Día festivo de oficina</span>
+      </span>
+      <span class="legend-hint">Pulsa en un día con vacaciones o festivos para ver el detalle</span>
+    </div>
   </footer>
 </section>

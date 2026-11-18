@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import {
+  AdminOffice,
   AdminTeam,
   AdminUser,
   getUserDisplayName,
@@ -36,13 +37,17 @@ import { UserColorPalette, getUserColor } from '../../../../core/models/vacation
 export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   readonly users = input.required<AdminUser[]>();
   readonly teams = input<AdminTeam[]>([]);
+  readonly offices = input<AdminOffice[]>([]);
   readonly selectedTeamFilter = input<number | null>(null);
+  readonly selectedOfficeFilter = input<number | null>(null);
   readonly pendingCount = input.required<number>();
   readonly userYearCounts = input.required<Map<number, number>>();
 
   readonly createClick = output<void>();
   readonly manageTeamsClick = output<void>();
+  readonly manageOfficesClick = output<void>();
   readonly teamFilterChange = output<number | null>();
+  readonly officeFilterChange = output<number | null>();
   readonly bulkInviteClick = output<void>();
   readonly editUser = output<AdminUser>();
   readonly addVacations = output<AdminUser>();
@@ -64,10 +69,14 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   protected readonly filteredUsers = computed<AdminUser[]>(() => {
     const query = this.searchTerm().trim().toLowerCase();
     const teamId = this.selectedTeamFilter();
+    const officeId = this.selectedOfficeFilter();
     let list = this.users();
 
     if (teamId !== null) {
       list = list.filter((u) => u.equipoIds.includes(teamId));
+    }
+    if (officeId !== null) {
+      list = list.filter((u) => u.oficinaId === officeId);
     }
 
     if (!query) {
@@ -77,11 +86,14 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
     return list.filter((u) => {
       const fullName = getUserDisplayName(u).toLowerCase();
       const teamNames = (u.equipos ?? []).map((t) => t.nombre.toLowerCase()).join(' ');
+      const officeName = (u.oficinaNombre ?? '').toLowerCase();
       return (
+        (u.codigo ?? '').toLowerCase().includes(query) ||
         fullName.includes(query) ||
         u.email.toLowerCase().includes(query) ||
         u.cargo.toLowerCase().includes(query) ||
-        teamNames.includes(query)
+        teamNames.includes(query) ||
+        officeName.includes(query)
       );
     });
   });
@@ -93,6 +105,15 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
     }
     const parsed = Number(value);
     this.teamFilterChange.emit(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
+  }
+
+  protected onOfficeFilterSelect(value: string | number | null): void {
+    if (value === null || value === '' || value === 'all') {
+      this.officeFilterChange.emit(null);
+      return;
+    }
+    const parsed = Number(value);
+    this.officeFilterChange.emit(Number.isInteger(parsed) && parsed > 0 ? parsed : null);
   }
 
   protected isPending(user: AdminUser): boolean {
@@ -134,11 +155,6 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
     this.menuPos.set({ x: rect.right, y: rect.bottom + 4 });
     // Tras renderizar, centrar/ajustar con las dimensiones reales del popup.
     setTimeout(() => this.placeMenu(rect));
-  }
-
-  protected runAction(callback: () => void): void {
-    this.closeMenu();
-    callback();
   }
 
   protected onEditUser(user: AdminUser): void {

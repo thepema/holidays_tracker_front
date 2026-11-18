@@ -52,11 +52,15 @@
               {{ requestSuccessMessage() }}
             </p>
           </div>
-        } @else {
-          <form class="landing-form" (ngSubmit)="submitSessionRequest()" novalidate>
-            <p class="form-helper">
-              Introduce tu <strong>nombre</strong> y <strong>correo electrónico</strong> corporativo para cruzarlos con la base de datos y registrar tu sesión como <em>solicitada</em>.
-            </p>
+        } @else if (requestStep() === 'verify') {
+          <form class="landing-form" (ngSubmit)="submitVerificationCode()" novalidate>
+            <div class="verify-notice" role="status">
+              <span class="verify-badge">Paso 2 de 2 · Verificación por correo</span>
+              <p class="verify-notice-text">
+                {{ verificationNotice() }}
+              </p>
+              <span class="verify-email-chip">{{ requestEmail() }}</span>
+            </div>
 
             @if (requestError()) {
               <div class="alert-error" role="alert">
@@ -66,20 +70,74 @@
             }
 
             <div class="field-group">
-              <label for="landing-nombre" class="field-label">Nombre</label>
+              <label for="landing-verification-code" class="field-label">
+                Código numérico de 6 dígitos
+              </label>
               <input
-                id="landing-nombre"
-                name="nombre"
+                id="landing-verification-code"
+                name="verificationCode"
                 type="text"
-                class="field-input"
-                placeholder="Ej. Laura o Laura Gómez"
-                autocomplete="name"
-                [ngModel]="requestNombre()"
-                (ngModelChange)="requestNombre.set($event)"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                maxlength="6"
+                autocomplete="one-time-code"
+                class="field-input otp-input"
+                placeholder="000000"
+                [ngModel]="verificationCode()"
+                (ngModelChange)="onVerificationCodeInput($event)"
                 [disabled]="requestLoading()"
                 required
               />
             </div>
+
+            <button
+              type="submit"
+              class="btn-primary"
+              [disabled]="requestLoading() || verificationCode().trim().length !== 6"
+            >
+              <span>
+                {{
+                  requestLoading()
+                    ? 'Verificando código…'
+                    : 'Confirmar código y solicitar sesión'
+                }}
+              </span>
+              @if (!requestLoading()) {
+                <span aria-hidden="true">→</span>
+              }
+            </button>
+
+            <div class="verify-secondary-actions">
+              <button
+                type="button"
+                class="btn-secondary"
+                [disabled]="requestLoading()"
+                (click)="resendVerificationCode()"
+              >
+                ↻ Reenviar código
+              </button>
+              <button
+                type="button"
+                class="btn-secondary"
+                [disabled]="requestLoading()"
+                (click)="backToRequestForm()"
+              >
+                ← Cambiar correo
+              </button>
+            </div>
+          </form>
+        } @else {
+          <form class="landing-form" (ngSubmit)="submitSessionRequest()" novalidate>
+            <p class="form-helper">
+              Introduce tu <strong>correo electrónico</strong> corporativo. Te enviaremos un código numérico de confirmación al correo antes de resetear y registrar tu solicitud.
+            </p>
+
+            @if (requestError()) {
+              <div class="alert-error" role="alert">
+                <span class="alert-icon" aria-hidden="true">!</span>
+                <span>{{ requestError() }}</span>
+              </div>
+            }
 
             <div class="field-group">
               <label for="landing-email" class="field-label">Correo electrónico</label>
@@ -100,9 +158,9 @@
             <button
               type="submit"
               class="btn-primary"
-              [disabled]="requestLoading() || !requestNombre().trim() || !requestEmail().trim()"
+              [disabled]="requestLoading() || !requestEmail().trim()"
             >
-              <span>{{ requestLoading() ? 'Verificando datos…' : 'Solicitar sesión' }}</span>
+              <span>{{ requestLoading() ? 'Verificando correo…' : 'Solicitar sesión' }}</span>
               @if (!requestLoading()) {
                 <span aria-hidden="true">→</span>
               }
