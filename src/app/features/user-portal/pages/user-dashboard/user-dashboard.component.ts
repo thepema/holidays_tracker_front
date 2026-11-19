@@ -1,4 +1,3 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -76,7 +75,7 @@ type RequestedFilter = 'todos' | 'proximos' | 'pasados';
 @Component({
   selector: 'app-user-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, AlertBannerComponent],
+  imports: [FormsModule, AlertBannerComponent],
   templateUrl: './user-dashboard.component.html',
   styleUrl: './user-dashboard.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

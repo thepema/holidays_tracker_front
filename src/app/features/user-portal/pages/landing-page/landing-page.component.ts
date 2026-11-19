@@ -1,13 +1,11 @@
-import { CommonModule } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
-   inject,
+  inject,
   output,
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterModule } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
 import { extractErrorMessage } from '../../../../core/utils/http-helpers';
@@ -17,7 +15,7 @@ export type LandingMode = 'solicitar' | 'recuperar';
 @Component({
   selector: 'app-landing-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [FormsModule],
   templateUrl: './landing-page.component.html',
   styleUrl: './landing-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

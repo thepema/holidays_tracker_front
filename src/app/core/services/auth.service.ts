@@ -13,7 +13,7 @@ export class AuthService {
   readonly loginError = signal<string>('');
   readonly isAuthenticated = computed<boolean>(() => Boolean(this.token()));
 
-  login(password: string, onSuccess?: () => void): void {
+  public login(password: string, onSuccess?: () => void): void {
     const cleanPassword = password.trim();
     if (!cleanPassword) {
       return;

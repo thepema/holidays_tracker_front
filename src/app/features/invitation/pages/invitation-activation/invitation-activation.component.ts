@@ -1,7 +1,6 @@
-import { CommonModule } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router, RouterModule } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionProfile, UserSessionService } from '../../../../core/services/user-session.service';
 import { extractErrorMessage } from '../../../../core/utils/http-helpers';
@@ -11,7 +10,7 @@ type ActivationState = 'cargando' | 'exito' | 'error';
 @Component({
   selector: 'app-invitation-activation',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [FormsModule],
   templateUrl: './invitation-activation.component.html',
   styleUrls: ['./invitation-activation.component.css'],
 })

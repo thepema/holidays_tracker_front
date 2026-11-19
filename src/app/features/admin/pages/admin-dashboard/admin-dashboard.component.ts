@@ -61,7 +61,6 @@ type ActiveModal =
   ],
   templateUrl: './admin-dashboard.component.html',
   styleUrl: './admin-dashboard.component.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AdminDashboardComponent implements OnInit {
   protected readonly state = inject(AdminStateService);

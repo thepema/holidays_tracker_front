@@ -1,3 +1,9 @@
+-Revisar admin-state
+-user-dashboard.component
+
+contienen toda la logica
+
+
 Hablar con Indra
 - Donde alojarlo y servidor de correo
 - posibilidad de conectarlo con el jira
