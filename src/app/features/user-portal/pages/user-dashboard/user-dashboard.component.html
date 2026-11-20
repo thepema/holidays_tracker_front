@@ -16,14 +16,7 @@
               <strong class="user-name">{{ userFullName() }}</strong>
               <span class="user-sub">
                 @if (profile.codigo) {
-                  {{ profile.codigo }} ·
-                }
-                {{ profile.cargo || profile.email }}
-                @if (profile.oficinaNombre || userOfficeName(); as officeName) {
-                  · 📍 {{ officeName }}
-                }
-                @if (userVacationTypeLabel()) {
-                  · {{ userVacationTypeLabel() }}
+                  {{ profile.codigo }}
                 }
               </span>
             </div>
@@ -54,46 +47,6 @@
     />
   </div>
 
-  <!-- Barra flotante inferior cuando se está modificando un día ya pedido (sin empujar el calendario) -->
-  @if (editingVacation(); as editing) {
-    <div class="floating-editing-bar" role="status" aria-live="polite">
-      <div class="editing-banner-inner">
-        <div class="editing-banner-info">
-          <span class="editing-badge">Modo modificación</span>
-          <p class="editing-banner-text">
-            Cambiando el día <strong>{{ editing.formattedDate }}</strong> ({{ editing.fecha }}).
-            Pulsa la nueva fecha en el calendario o elígela aquí:
-          </p>
-        </div>
-        <div class="editing-banner-controls">
-          <input
-            type="date"
-            class="date-picker-input"
-            [min]="todayKey()"
-            [ngModel]="editingNewDate()"
-            (ngModelChange)="editingNewDate.set($event)"
-          />
-          <button
-            type="button"
-            class="btn-save-edit"
-            [disabled]="modifyingLoading() || !editingNewDate() || editingNewDate() === editing.fecha"
-            (click)="saveModifiedVacation()"
-          >
-            {{ modifyingLoading() ? 'Guardando…' : 'Guardar cambio' }}
-          </button>
-          <button
-            type="button"
-            class="btn-cancel-edit"
-            [disabled]="modifyingLoading()"
-            (click)="cancelEditVacation()"
-          >
-            Cancelar
-          </button>
-        </div>
-      </div>
-    </div>
-  }
-
   <main class="user-main">
     <!-- ===================================================================== -->
     <!-- SECCIÓN SUPERIOR ABIERTA: PANTALLAS DEL CALENDARIO DE VACACIONES       -->
@@ -104,10 +57,6 @@
         <div class="carousel-copy">
           <p class="eyebrow">SELECCIÓN DE VACACIONES</p>
           <h2>Calendario de vacaciones</h2>
-          <p class="subtitle">
-            Haz <strong>clic individual</strong> para elegir o quitar un día, o
-            <strong>mantén pulsado medio segundo y arrastra hacia delante</strong> para seleccionar varios días hábiles seguidos (sin fines de semana).
-          </p>
         </div>
 
         <div class="carousel-shortcuts-toolbar" role="toolbar" aria-label="Atajos del calendario">
@@ -460,10 +409,6 @@
             <span class="legend-swatch holiday"></span>
             <span>Día festivo (no seleccionable)</span>
           </span>
-          <span class="legend-item">
-            <span class="legend-swatch weekend"></span>
-            <span>Fin de semana (omitido en arrastre)</span>
-          </span>
         </div>
       </footer>
     </section>
@@ -511,16 +456,6 @@
                   <strong class="selected-day-date">{{ item.formattedDate }}</strong>
                 </div>
                 <div class="selected-day-actions">
-                  @if (item.monthIndex !== null) {
-                    <button
-                      type="button"
-                      class="btn-locate-day"
-                      (click)="goToCarouselMonth(item.monthIndex)"
-                      title="Ver este mes en el calendario"
-                    >
-                      Ver mes
-                    </button>
-                  }
                   <button
                     type="button"
                     class="btn-remove-day"
@@ -636,14 +571,6 @@
 
                   @if (item.canModify) {
                     <div class="requested-day-actions">
-                      <button
-                        type="button"
-                        class="btn-locate-day"
-                        (click)="goToDateMonth(item.fecha)"
-                        title="Ir al mes de este día en el calendario"
-                      >
-                        Ver en mes
-                      </button>
                       <button
                         type="button"
                         class="btn-modify-item"

@@ -48,7 +48,6 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   readonly manageOfficesClick = output<void>();
   readonly teamFilterChange = output<number | null>();
   readonly officeFilterChange = output<number | null>();
-  readonly bulkInviteClick = output<void>();
   readonly editUser = output<AdminUser>();
   readonly addVacations = output<AdminUser>();
   readonly resendInvite = output<AdminUser>();

@@ -21,13 +21,6 @@
               : 'Solicitudes pendientes'
           }}
         </h1>
-        <p class="subtitle">
-          {{
-            activeView() === 'dashboard'
-              ? 'Supervisa la planificación vacacional, gestiona altas, equipos y administra los accesos.'
-              : 'Usuarios que no tienen su sesión activada o han solicitado acceso.'
-          }}
-        </p>
       </div>
       <div class="hero-meta">
         @if (activeView() === 'dashboard') {
@@ -81,7 +74,6 @@
           (manageOfficesClick)="openOfficesModal()"
           (teamFilterChange)="state.setTeamFilter($event)"
           (officeFilterChange)="state.setOfficeFilter($event)"
-          (bulkInviteClick)="openConfirmBulkModal()"
           (editUser)="openEditUserModal($event)"
           (addVacations)="openVacationsModal($event)"
           (resendInvite)="state.resendInvitation($event)"

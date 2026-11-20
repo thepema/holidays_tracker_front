@@ -4,9 +4,8 @@
       <p class="eyebrow">PLANIFICACIÓN</p>
       <h2>Calendario de vacaciones</h2>
       <p class="subtitle">
-        Pulsa sobre cualquier día con vacaciones o festivos para ver el detalle
         @if (selectedTeamName(); as teamName) {
-          · Equipo: <strong>{{ teamName }}</strong>
+          Equipo: <strong>{{ teamName }}</strong>
         }
         @if (selectedOfficeName(); as officeName) {
           · Oficina: <strong>{{ officeName }}</strong>
@@ -19,43 +18,6 @@
     </div>
 
     <div class="header-controls-group">
-      @if (offices().length > 0) {
-        <div class="team-filter-control">
-          <label class="filter-label" for="calendar-office-filter">Oficina</label>
-          <select
-            id="calendar-office-filter"
-            class="calendar-team-select"
-            [ngModel]="selectedOfficeId() ?? 'all'"
-            (ngModelChange)="onOfficeSelectChange($event)"
-            aria-label="Filtrar calendario por oficina"
-          >
-            <option value="all">Todas las oficinas</option>
-            @for (office of offices(); track office.id) {
-              <option [ngValue]="office.id">
-                {{ office.nombre }} ({{ office.usuarioIds.length }})
-              </option>
-            }
-          </select>
-        </div>
-      }
-
-      <div class="team-filter-control">
-        <label class="filter-label" for="calendar-team-filter">Equipo</label>
-        <select
-          id="calendar-team-filter"
-          class="calendar-team-select"
-          [ngModel]="selectedTeamId() ?? 'all'"
-          (ngModelChange)="onTeamSelectChange($event)"
-          aria-label="Filtrar calendario por equipo"
-        >
-          <option value="all">Todos los equipos</option>
-          @for (team of teams(); track team.id) {
-            <option [ngValue]="team.id">
-              {{ team.nombre }} ({{ team.usuarioIds.length }})
-            </option>
-          }
-        </select>
-      </div>
 
       <div class="month-controls">
         <button
@@ -246,9 +208,6 @@
                   @if (user.codigo) {
                     <span class="detail-user-code">{{ user.codigo }}</span>
                   }
-                  @if (user.cargo) {
-                    <span class="detail-user-role">{{ user.cargo }}</span>
-                  }
                 </div>
                 @if (userTeams(user.usuarioId).length > 0) {
                   <div class="detail-user-teams">
@@ -257,13 +216,9 @@
                     }
                   </div>
                 }
-                @if (user.email) {
-                  <span class="detail-user-email">{{ user.email }}</span>
-                } @else {
-                  <span class="detail-user-status">Ausencia por vacaciones registrada</span>
-                }
               </div>
               @if (user.vacacionId) {
+              <div class="btn-delete-vacation-wrapper">
                 <button
                   type="button"
                   class="btn-delete-vacation"
@@ -271,8 +226,9 @@
                   (click)="onDeleteUserVacation(user, activeCell.dateKey)"
                   title="Eliminar este día de vacaciones"
                 >
-                  {{ deletingVacationId() === user.vacacionId ? 'Eliminando…' : '✕ Eliminar' }}
+                  {{ deletingVacationId() === user.vacacionId ? 'Eliminando…' : '✕' }}
                 </button>
+              </div>
               }
             </article>
           }
@@ -316,7 +272,6 @@
         <span class="legend-holiday-swatch"></span>
         <span>Día festivo de oficina</span>
       </span>
-      <span class="legend-hint">Pulsa en un día con vacaciones o festivos para ver el detalle</span>
     </div>
   </footer>
 </section>

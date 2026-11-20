@@ -45,17 +45,6 @@
   </header>
 
   <div class="team-toolbar">
-    <button
-      type="button"
-      class="btn-bulk-invite"
-      [disabled]="users().length === 0"
-      (click)="bulkInviteClick.emit()"
-    >
-      <span class="invite-label">↗ Invitar usuarios sin sesión activa</span>
-      @if (pendingCount() > 0) {
-        <span class="invite-badge" title="Usuarios con invitación en proceso">{{ pendingCount() }}</span>
-      }
-    </button>
 
     @if (users().length > 0) {
       <div class="search-and-filters">
@@ -133,7 +122,7 @@
           @if (user.equipos.length > 0 || user.oficinaNombre) {
             <div class="user-teams-row">
               @if (user.oficinaNombre) {
-                <span class="user-office-pill" title="Oficina asignada">📍 {{ user.oficinaNombre }}</span>
+                <span class="user-office-pill" title="Oficina asignada">{{ user.oficinaNombre }}</span>
               }
               @for (team of user.equipos; track team.id) {
                 <span class="user-team-pill">{{ team.nombre }}</span>
