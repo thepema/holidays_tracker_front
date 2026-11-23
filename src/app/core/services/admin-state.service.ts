@@ -41,6 +41,7 @@ export class AdminStateService {
   readonly loading = signal<boolean>(false);
   readonly saving = signal<boolean>(false);
   readonly exporting = signal<boolean>(false);
+  readonly sendingReminders = signal<boolean>(false);
   readonly deletingVacationId = signal<number | null>(null);
 
   readonly offices = computed<AdminOffice[]>(() => {
@@ -153,6 +154,10 @@ export class AdminStateService {
     this.pendingUsers().length + this.requestedUsers().length
   );
 
+  readonly authenticatedUsers = computed<AdminUser[]>(() =>
+    this.users().filter((u) => u.estadoSesion === 'autorizado' && u.sesionActiva)
+  );
+
   readonly users = computed<AdminUser[]>(() => {
     const pendingSet = new Set(this.pendingUsers().map((u) => u.id));
     const allTeams = this.teams();
@@ -192,7 +197,7 @@ export class AdminStateService {
         oficinaNombre: resolvedOfficeName,
         equipos,
         equipoIds,
-        sesionActiva: !pendingSet.has(user.id) && user.estadoSesion !== 'solicitado',
+        sesionActiva: user.estadoSesion === 'autorizado' && !pendingSet.has(user.id),
       };
     });
   });
@@ -321,6 +326,7 @@ export class AdminStateService {
     this.loading.set(false);
     this.saving.set(false);
     this.exporting.set(false);
+    this.sendingReminders.set(false);
     this.deletingVacationId.set(null);
     this.notifications.clearAll();
   }
@@ -909,6 +915,45 @@ export class AdminStateService {
         this.saving.set(false);
         this.notifications.showError(
           extractErrorMessage(error, 'No se pudieron enviar las invitaciones.')
+        );
+      },
+    });
+  }
+
+  sendVacationReminders(onSuccess?: () => void): void {
+    this.sendingReminders.set(true);
+    this.notifications.clearError();
+
+    this.api.sendVacationReminders(this.auth.token()).subscribe({
+      next: (res) => {
+        this.sendingReminders.set(false);
+        const body = asRecord(res);
+        const total = typeof body['total'] === 'number' ? body['total'] : 0;
+        const enviadas = typeof body['enviadas'] === 'number' ? body['enviadas'] : 0;
+        const fallidas = typeof body['fallidas'] === 'number' ? body['fallidas'] : 0;
+
+        if (total === 0) {
+          this.notifications.showNotice(
+            'No hay usuarios autenticados a los que enviar el recordatorio.'
+          );
+        } else if (fallidas > 0) {
+          this.notifications.showNotice(
+            `Recordatorio enviado a ${enviadas} de ${total} usuarios autenticados.`
+          );
+          this.notifications.showError(
+            `No se pudo entregar el correo a ${fallidas} ${fallidas === 1 ? 'usuario' : 'usuarios'}.`
+          );
+        } else {
+          this.notifications.showNotice(
+            `Se ha enviado el recordatorio de vacaciones a ${enviadas} ${enviadas === 1 ? 'usuario autenticado' : 'usuarios autenticados'}.`
+          );
+        }
+        onSuccess?.();
+      },
+      error: (error: unknown) => {
+        this.sendingReminders.set(false);
+        this.notifications.showError(
+          extractErrorMessage(error, 'No se pudo enviar el recordatorio de vacaciones.')
         );
       },
     });

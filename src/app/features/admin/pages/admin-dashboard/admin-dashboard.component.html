@@ -26,6 +26,16 @@
         @if (activeView() === 'dashboard') {
           <button
             type="button"
+            class="btn-send-reminder"
+            [disabled]="state.sendingReminders()"
+            (click)="openConfirmReminderModal()"
+            title="Enviar correo de recordatorio de vacaciones a todos los usuarios autenticados"
+          >
+            <span class="reminder-icon" aria-hidden="true">✉</span>
+            <span>{{ state.sendingReminders() ? 'Enviando recordatorio…' : 'Recordar vacaciones' }}</span>
+          </button>
+          <button
+            type="button"
             class="btn-export-excel"
             (click)="openExportExcelModal()"
             title="Exportar vacaciones a Excel"
@@ -168,6 +178,46 @@
     (confirmSend)="handleConfirmBulkInvite()"
     (cancel)="closeModal()"
   />
+}
+
+@if (activeModal() === 'confirm-reminder') {
+  <app-modal-shell
+    eyebrow="RECORDATORIO DE VACACIONES"
+    title="¿Enviar recordatorio a los usuarios autenticados?"
+    roleType="alertdialog"
+    (closeModal)="closeModal()"
+  >
+    <div class="confirm-body">
+      <div class="confirm-icon" aria-hidden="true">✉</div>
+      <p class="confirm-text">
+        Se enviará un correo electrónico a
+        <strong>
+          {{ state.authenticatedUsers().length }}
+          {{ state.authenticatedUsers().length === 1 ? 'usuario autenticado' : 'usuarios autenticados' }}
+        </strong>
+        para recordarles que entren en la aplicación y registren sus vacaciones previstas para los
+        próximos meses.
+      </p>
+      <div class="confirm-actions">
+        <button
+          type="button"
+          class="btn-secondary"
+          [disabled]="state.sendingReminders()"
+          (click)="closeModal()"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          class="btn-primary"
+          [disabled]="state.sendingReminders() || state.authenticatedUsers().length === 0"
+          (click)="handleConfirmVacationReminder()"
+        >
+          {{ state.sendingReminders() ? 'Enviando…' : 'Sí, enviar recordatorio' }}
+        </button>
+      </div>
+    </div>
+  </app-modal-shell>
 }
 
 @if (activeModal() === 'export-excel') {

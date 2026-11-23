@@ -264,6 +264,10 @@ export function normalizeUser(value: unknown): AdminUser | null {
     return null;
   }
 
+  const rawEstadoSesion = String(
+    item['estado_sesion'] ?? item['estadoSesion'] ?? item['estado'] ?? ''
+  ).toLowerCase().trim();
+
   const rawSession =
     item['sesionActiva'] ??
     item['sesion_activa'] ??
@@ -271,17 +275,6 @@ export function normalizeUser(value: unknown): AdminUser | null {
     item['has_session'] ??
     item['sessionActive'] ??
     item['session_active'];
-
-  const sesionActiva = !(
-    rawSession === false ||
-    rawSession === 0 ||
-    rawSession === 'false' ||
-    rawSession === null
-  );
-
-  const rawEstadoSesion = String(
-    item['estado_sesion'] ?? item['estadoSesion'] ?? item['estado'] ?? ''
-  ).toLowerCase().trim();
 
   const solicitudPendiente =
     rawEstadoSesion === 'solicitado' ||
@@ -291,6 +284,29 @@ export function normalizeUser(value: unknown): AdminUser | null {
         item['sessionRequested'] ??
         item['session_requested']
     );
+
+  const hasExplicitSessionFlag = rawSession !== undefined && rawSession !== null;
+  const explicitSessionActive = !(
+    rawSession === false ||
+    rawSession === 0 ||
+    rawSession === 'false'
+  );
+
+  const sesionActiva = rawEstadoSesion
+    ? rawEstadoSesion === 'autorizado'
+    : hasExplicitSessionFlag
+      ? explicitSessionActive && !solicitudPendiente
+      : false;
+
+  const estadoSesion =
+    rawEstadoSesion ||
+    (solicitudPendiente
+      ? 'solicitado'
+      : hasExplicitSessionFlag
+        ? explicitSessionActive
+          ? 'autorizado'
+          : 'proceso'
+        : '');
 
   const equiposMap = new Map<number, UserTeamBadge>();
   const rawEquipos = item['equipos'] ?? item['teams'] ?? [];
@@ -355,7 +371,7 @@ export function normalizeUser(value: unknown): AdminUser | null {
     equipoIds,
     sesionActiva,
     solicitudPendiente,
-    estadoSesion: rawEstadoSesion || (solicitudPendiente ? 'solicitado' : (!sesionActiva ? 'proceso' : 'autorizado')),
+    estadoSesion,
   };
 }
 
@@ -364,7 +380,7 @@ export function isUserPending(user: AdminUser): boolean {
 }
 
 export function hasActiveSession(user: AdminUser): boolean {
-  return !isUserPending(user) && !isUserRequested(user);
+  return user.estadoSesion === 'autorizado' && !isUserPending(user) && !isUserRequested(user);
 }
 
 export function isUserRequested(user: AdminUser): boolean {

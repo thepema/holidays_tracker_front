@@ -19,6 +19,7 @@ import { VacationDay } from '../../../../core/models/vacation.model';
 import { AdminStateService } from '../../../../core/services/admin-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
+import { ModalShellComponent } from '../../../../shared/components/modal-shell/modal-shell.component';
 import {
   AdminHeaderComponent,
   AdminViewTab,
@@ -40,6 +41,7 @@ type ActiveModal =
   | 'offices'
   | 'vacations'
   | 'confirm-bulk'
+  | 'confirm-reminder'
   | 'export-excel'
   | '';
 
@@ -49,6 +51,7 @@ type ActiveModal =
   imports: [
     AdminHeaderComponent,
     AlertBannerComponent,
+    ModalShellComponent,
     VacationCalendarComponent,
     TeamPanelComponent,
     TeamsModalComponent,
@@ -137,6 +140,10 @@ export class AdminDashboardComponent implements OnInit {
 
   protected openConfirmBulkModal(): void {
     this.activeModal.set('confirm-bulk');
+  }
+
+  protected openConfirmReminderModal(): void {
+    this.activeModal.set('confirm-reminder');
   }
 
   protected openExportExcelModal(): void {
@@ -259,6 +266,10 @@ export class AdminDashboardComponent implements OnInit {
 
   protected handleConfirmBulkInvite(): void {
     this.state.sendBulkInvitations(() => this.closeModal());
+  }
+
+  protected handleConfirmVacationReminder(): void {
+    this.state.sendVacationReminders(() => this.closeModal());
   }
 
   protected handleExportExcel(period: {

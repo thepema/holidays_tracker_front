@@ -358,6 +358,22 @@ export class ApiService {
   }
 
   /**
+   * POST /api/vacaciones/recordatorio (administrador)
+   * Envía un correo de recordatorio a todos los usuarios autenticados para que registren
+   * sus vacaciones previstas en los próximos meses.
+   *
+   * @param token Token Bearer de administrador opcional.
+   * @returns Observable con el resumen del envío (`total`, `enviadas`, `fallidas`).
+   */
+  sendVacationReminders(token?: string): Observable<unknown> {
+    return this.http.post(
+      `${this.baseUrl}/api/vacaciones/recordatorio`,
+      {},
+      { headers: this.auth(token) }
+    );
+  }
+
+  /**
    * POST /api/sesiones/invitaciones (administrador)
    * Envía de forma masiva enlaces de invitación a los usuarios pendientes de activación.
    *
