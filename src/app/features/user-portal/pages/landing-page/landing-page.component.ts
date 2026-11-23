@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  OnDestroy,
   inject,
   output,
   signal,
@@ -8,9 +9,11 @@ import {
 import { FormsModule } from '@angular/forms';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
-import { extractErrorMessage } from '../../../../core/utils/http-helpers';
+import { asRecord, extractErrorMessage } from '../../../../core/utils/http-helpers';
 
 export type LandingMode = 'solicitar' | 'recuperar';
+
+const DEFAULT_RESEND_COOLDOWN_SECONDS = 60;
 
 @Component({
   selector: 'app-landing-page',
@@ -20,9 +23,10 @@ export type LandingMode = 'solicitar' | 'recuperar';
   styleUrl: './landing-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class LandingPageComponent {
+export class LandingPageComponent implements OnDestroy {
   private readonly api = inject(ApiService);
   private readonly userSession = inject(UserSessionService);
+  private cooldownTimerId: ReturnType<typeof setInterval> | null = null;
 
   readonly sessionRecovered = output<void>();
 
@@ -33,6 +37,7 @@ export class LandingPageComponent {
   readonly requestEmail = signal<string>('');
   readonly verificationCode = signal<string>('');
   readonly verificationNotice = signal<string>('');
+  readonly resendCooldown = signal<number>(0);
   readonly requestLoading = signal<boolean>(false);
   readonly requestError = signal<string>('');
   readonly requestSuccess = signal<boolean>(false);
@@ -42,6 +47,10 @@ export class LandingPageComponent {
   readonly recoveryToken = signal<string>('');
   readonly recoveryLoading = signal<boolean>(false);
   readonly recoveryError = signal<string>('');
+
+  ngOnDestroy(): void {
+    this.clearResendCooldown();
+  }
 
   setMode(mode: LandingMode): void {
     this.activeMode.set(mode);
@@ -76,6 +85,7 @@ export class LandingPageComponent {
               'Hemos enviado un código numérico de 6 dígitos a tu correo electrónico.'
           );
           this.requestStep.set('verify');
+          this.startResendCooldown(this.extractCooldownSeconds(res) ?? DEFAULT_RESEND_COOLDOWN_SECONDS);
           return;
         }
         this.requestSuccess.set(true);
@@ -86,6 +96,10 @@ export class LandingPageComponent {
       },
       error: (err: unknown) => {
         this.requestLoading.set(false);
+        const retryAfter = this.extractRetryAfterSeconds(err);
+        if (retryAfter !== null) {
+          this.startResendCooldown(retryAfter);
+        }
         this.requestError.set(
           extractErrorMessage(
             err,
@@ -116,6 +130,7 @@ export class LandingPageComponent {
     this.api.confirmSessionRequestWithCode(this.requestEmail(), code).subscribe({
       next: (res) => {
         this.requestLoading.set(false);
+        this.clearResendCooldown();
         this.requestSuccess.set(true);
         this.requestSuccessMessage.set(
           res?.mensaje ||
@@ -136,7 +151,7 @@ export class LandingPageComponent {
 
   resendVerificationCode(): void {
     const email = this.requestEmail().trim();
-    if (!email || this.requestLoading()) {
+    if (!email || this.requestLoading() || this.resendCooldown() > 0) {
       return;
     }
 
@@ -151,9 +166,14 @@ export class LandingPageComponent {
           res?.mensaje ||
             'Hemos enviado un nuevo código numérico de 6 dígitos a tu correo electrónico.'
         );
+        this.startResendCooldown(this.extractCooldownSeconds(res) ?? DEFAULT_RESEND_COOLDOWN_SECONDS);
       },
       error: (err: unknown) => {
         this.requestLoading.set(false);
+        const retryAfter = this.extractRetryAfterSeconds(err);
+        if (retryAfter !== null) {
+          this.startResendCooldown(retryAfter);
+        }
         this.requestError.set(
           extractErrorMessage(err, 'No se pudo reenviar el código de verificación.')
         );
@@ -162,10 +182,54 @@ export class LandingPageComponent {
   }
 
   backToRequestForm(): void {
+    this.clearResendCooldown();
     this.requestStep.set('form');
     this.verificationCode.set('');
     this.verificationNotice.set('');
     this.requestError.set('');
+  }
+
+  private startResendCooldown(seconds: number): void {
+    this.clearResendCooldown();
+    const initialSeconds = Math.max(0, Math.ceil(seconds));
+    if (initialSeconds <= 0) {
+      return;
+    }
+    this.resendCooldown.set(initialSeconds);
+    this.cooldownTimerId = setInterval(() => {
+      const nextValue = this.resendCooldown() - 1;
+      if (nextValue <= 0) {
+        this.clearResendCooldown();
+      } else {
+        this.resendCooldown.set(nextValue);
+      }
+    }, 1000);
+  }
+
+  private clearResendCooldown(): void {
+    if (this.cooldownTimerId !== null) {
+      clearInterval(this.cooldownTimerId);
+      this.cooldownTimerId = null;
+    }
+    this.resendCooldown.set(0);
+  }
+
+  private extractCooldownSeconds(res: unknown): number | null {
+    const value = asRecord(res)['cooldownSeconds'];
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  private extractRetryAfterSeconds(err: unknown): number | null {
+    const root = asRecord(err);
+    if (root['status'] !== 429) {
+      return null;
+    }
+    const body = asRecord(root['error']);
+    const retryAfter = body['retryAfterSeconds'];
+    if (typeof retryAfter === 'number' && Number.isFinite(retryAfter) && retryAfter > 0) {
+      return retryAfter;
+    }
+    return DEFAULT_RESEND_COOLDOWN_SECONDS;
   }
 
   submitRecoveryToken(): void {

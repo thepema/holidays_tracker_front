@@ -111,10 +111,14 @@
               <button
                 type="button"
                 class="btn-secondary"
-                [disabled]="requestLoading()"
+                [disabled]="requestLoading() || resendCooldown() > 0"
                 (click)="resendVerificationCode()"
               >
-                ↻ Reenviar código
+                {{
+                  resendCooldown() > 0
+                    ? '↻ Reenviar código (' + resendCooldown() + 's)'
+                    : '↻ Reenviar código'
+                }}
               </button>
               <button
                 type="button"
