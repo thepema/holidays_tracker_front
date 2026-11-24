@@ -1,5 +1,6 @@
-<main class="invitation-page">
-  <div class="activation-card">
+<div class="invitation-shell">
+  <main class="invitation-page">
+    <div class="activation-card">
 
     <!-- Marca / Cabecera -->
     <header class="card-brand">
@@ -97,6 +98,9 @@
               Tu sesión ha quedado guardada en este navegador y <strong>no caducará</strong>.
               Sin embargo, <strong>debes conservar este código</strong> para poder iniciar sesión desde otro navegador o resetear tu acceso si alguna vez borras o pierdes la cookie de navegación.
             </p>
+            <a routerLink="/guia-acceso" class="warning-guide-link">
+              Ver guía sobre cómo funciona tu sesión y este código →
+            </a>
           </div>
         </div>
 
@@ -140,11 +144,15 @@
 
         <div class="info-help-box">
           <p>
-            El enlace de invitación puede haber caducado, haber sido utilizado ya o contener caracteres incompletos.
+            El enlace de invitación es de <strong>un solo uso</strong>: puede haber caducado, haber sido utilizado ya o contener caracteres incompletos.
           </p>
-          <p class="help-action">
-            Pide a tu administrador que te reenvíe una nueva invitación desde el panel de control.
+          <p class="help-action-warning">
+            <strong>¿Ya activaste este enlace antes?</strong> Tu cuenta ya está activa: <strong>no pulses «Volver a solicitar»</strong> (eso anularía tu sesión y tu token actuales). Entra directamente al portal o utiliza tu token de recuperación.
           </p>
+          <div class="help-links-row">
+            <a routerLink="/" class="help-inline-link">Ir al portal de acceso</a>
+            <a routerLink="/guia-acceso" class="help-inline-link">Ver guía de inicio de sesión →</a>
+          </div>
         </div>
 
         @if (requestSuccess()) {
@@ -160,6 +168,12 @@
             <label for="request-email-input" class="request-form-label">
               Introduce tu correo corporativo para volver a solicitar la invitación:
             </label>
+            <p class="request-reset-note">
+              Aviso: volver a solicitar anulará cualquier sesión o token anterior que tuvieras activo.
+              <a routerLink="/guia-acceso" class="help-inline-link">
+                ¿Ya tenías sesión? Lee esta guía antes de volver a solicitar →
+              </a>
+            </p>
             <div class="request-input-row">
               <input
                 id="request-email-input"
@@ -200,5 +214,8 @@
       </div>
     }
 
-  </div>
-</main>
+    </div>
+  </main>
+
+  <app-user-session-footer />
+</div>

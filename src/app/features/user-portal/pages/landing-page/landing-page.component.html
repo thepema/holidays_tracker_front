@@ -1,5 +1,6 @@
-<main class="landing-page">
-  <div class="landing-card">
+<div class="landing-shell">
+  <main class="landing-page">
+    <div class="landing-card">
     <!-- Cabecera de marca -->
     <header class="card-brand">
       <div class="brand-logo">
@@ -90,6 +91,16 @@
               />
             </div>
 
+            <div class="verify-reset-warning" role="note">
+              <strong>Atención antes de confirmar:</strong>
+              <span>
+                Al confirmar este código, tu sesión activa y tu token de recuperación anteriores quedarán anulados hasta que recibas una nueva invitación.
+              </span>
+              <a routerLink="/guia-acceso" class="btn-inline-link">
+                ¿No estás seguro? Consulta cómo funciona el acceso →
+              </a>
+            </div>
+
             <button
               type="submit"
               class="btn-primary"
@@ -135,6 +146,25 @@
             <p class="form-helper">
               Introduce tu <strong>correo electrónico</strong> corporativo. Te enviaremos un código numérico de confirmación al correo antes de resetear y registrar tu solicitud.
             </p>
+
+            <div class="reset-warning-box" role="note">
+              <span class="reset-warning-icon" aria-hidden="true">!</span>
+              <div class="reset-warning-content">
+                <strong>¿Ya activaste tu cuenta antes?</strong>
+                <p>
+                  Solicitar sesión <strong>anulará tu sesión actual y tu token de recuperación</strong> y tendrás que esperar a que el administrador te envíe una nueva invitación.
+                  Si conservas tu token, úsalo sin esperar.
+                </p>
+                <div class="reset-warning-actions">
+                  <button type="button" class="btn-inline-link" (click)="setMode('recuperar')">
+                    Usar «Recuperar con token»
+                  </button>
+                  <a routerLink="/guia-acceso" class="btn-inline-link">
+                    Leer guía detallada antes de resetear →
+                  </a>
+                </div>
+              </div>
+            </div>
 
             @if (requestError()) {
               <div class="alert-error" role="alert">
@@ -182,6 +212,11 @@
             Introduce el <strong>token de recuperación</strong> que guardaste al activar tu invitación. Al verificarlo se te devolverá la cookie de sesión en este navegador.
           </p>
 
+          <div class="token-guide-hint">
+            <span>¿No sabes cuál es tu token o cómo recuperarlo sin bloquear tu sesión?</span>
+            <a routerLink="/guia-acceso" class="btn-inline-link">Ver guía de acceso →</a>
+          </div>
+
           @if (recoveryError()) {
             <div class="alert-error" role="alert">
               <span class="alert-icon" aria-hidden="true">!</span>
@@ -219,5 +254,8 @@
         </form>
       </section>
     }
-  </div>
-</main>
+    </div>
+  </main>
+
+  <app-user-session-footer />
+</div>

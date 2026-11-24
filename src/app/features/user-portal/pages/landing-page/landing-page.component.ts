@@ -7,9 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionService } from '../../../../core/services/user-session.service';
 import { asRecord, extractErrorMessage } from '../../../../core/utils/http-helpers';
+import { UserSessionFooterComponent } from '../../components/user-session-footer/user-session-footer.component';
 
 export type LandingMode = 'solicitar' | 'recuperar';
 
@@ -18,7 +20,7 @@ const DEFAULT_RESEND_COOLDOWN_SECONDS = 60;
 @Component({
   selector: 'app-landing-page',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, UserSessionFooterComponent],
   templateUrl: './landing-page.component.html',
   styleUrl: './landing-page.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,

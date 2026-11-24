@@ -1,0 +1,179 @@
+<div class="guide-page-shell">
+  <!-- Barra superior -->
+  <header class="guide-topbar">
+    <div class="topbar-inner">
+      <div class="topbar-brand">
+        <span class="brand-mark" aria-hidden="true">h</span>
+        <span class="brand-name">holidays<span class="brand-light"> tracker</span></span>
+        <span class="portal-badge">Guía de Acceso</span>
+      </div>
+
+      <a routerLink="/" class="btn-back-portal">
+        <span aria-hidden="true">←</span>
+        <span>Volver al portal</span>
+      </a>
+    </div>
+  </header>
+
+  <main class="guide-main">
+    <!-- Hero / Resumen ejecutivo -->
+    <section class="guide-hero" aria-label="Resumen del sistema de acceso">
+      <p class="eyebrow">Guía de inicio de sesión y acceso sin contraseñas</p>
+      <h1 class="hero-title">Cómo funciona tu sesión en Holidays Tracker (y por qué no debes resetearla)</h1>
+      <p class="hero-subtitle">
+        Holidays Tracker no utiliza usuario y contraseña tradicional. Tu acceso funciona mediante una
+        <strong>sesión permanente guardada en tu navegador</strong> combinada con tu
+        <strong>token de recuperación personal</strong>. Entender estos 3 puntos evitará que bloquees tu cuenta por error.
+      </p>
+    </section>
+
+    <!-- Sección 1: Los 3 pilares del acceso -->
+    <section class="guide-section" aria-label="Los 3 pilares del acceso">
+      <div class="section-header">
+        <p class="eyebrow">Paso a paso</p>
+        <h2>El funcionamiento normal de tu acceso en 3 pilares</h2>
+      </div>
+
+      <div class="pillars-grid">
+        <article class="pillar-card">
+          <div class="pillar-header">
+            <span class="step-badge">1</span>
+            <span class="pillar-tag">Solo la primera vez</span>
+          </div>
+          <h3>Activación única por invitación</h3>
+          <p>
+            El administrador te envía un enlace único de invitación por correo. Al abrirlo, tu navegador queda vinculado automáticamente a tu cuenta y ves en pantalla tu
+            <strong>código o token de recuperación personal</strong>, que puedes copiar o descargar en un archivo <code>.txt</code>.
+          </p>
+          <p class="pillar-note">
+            El enlace de invitación del correo es de <strong>un solo uso</strong>: una vez activado, ya no hace falta volver a abrirlo.
+          </p>
+        </article>
+
+        <article class="pillar-card">
+          <div class="pillar-header">
+            <span class="step-badge">2</span>
+            <span class="pillar-tag">Uso diario</span>
+          </div>
+          <h3>Uso diario automático (la sesión no caduca)</h3>
+          <p>
+            Mientras entres desde el navegador habitual donde activaste la invitación, la aplicación te reconoce automáticamente gracias a una cookie segura que <strong>no caduca por tiempo</strong>.
+          </p>
+          <p class="pillar-note">
+            <strong>No tienes que iniciar sesión cada día</strong> ni volver a pedir acceso: basta con abrir la web principal y verás directamente tu calendario de vacaciones.
+          </p>
+        </article>
+
+        <article class="pillar-card pillar-highlight">
+          <div class="pillar-header">
+            <span class="step-badge">3</span>
+            <span class="pillar-tag">Otro PC o navegador</span>
+          </div>
+          <h3>Cambio de navegador, otro PC o borrado de cookies</h3>
+          <p>
+            Si entras desde otro ordenador, desde el móvil, en otro navegador o tras limpiar las cookies, abre la pestaña
+            <strong>«Recuperar con token»</strong> en la pantalla de acceso y pega tu código guardado.
+          </p>
+          <p class="pillar-note">
+            Entrarás <strong>al instante</strong> sin molestar ni esperar al administrador. Además, <strong>el mismo token sigue siendo válido</strong> para futuras ocasiones.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Sección 2: Advertencia crítica -->
+    <section class="critical-warning-card" role="alert" aria-label="Advertencia sobre Solicitar sesión">
+      <div class="warning-icon-badge" aria-hidden="true">!</div>
+      <div class="warning-body">
+        <p class="warning-eyebrow">Advertencia crítica · Causa principal de bloqueos</p>
+        <h2>¿Por qué «Solicitar sesión» o «Volver a solicitar» bloquea tu cuenta?</h2>
+        <p>
+          Muchas personas pulsan <strong>«Solicitar sesión»</strong> pensando que es un inicio de sesión normal por correo.
+          <strong>No lo es: es un reseteo completo de seguridad.</strong>
+        </p>
+        <ul class="warning-list">
+          <li>
+            En el momento en que confirmas el código numérico de 6 dígitos que llega a tu correo (o pides una nueva invitación desde un enlace antiguo), el sistema
+            <strong>anula inmediatamente cualquier sesión activa en tus navegadores</strong>.
+          </li>
+          <li>
+            También <strong>revoca e invalida tu token de recuperación anterior</strong>, pasando tu cuenta al estado <em>«solicitado»</em>.
+          </li>
+          <li>
+            Mientras tu cuenta esté en estado <em>«solicitado»</em>, <strong>no podrás entrar ni siquiera usando tu antiguo token</strong> hasta que un administrador revise manualmente tu petición y te envíe un nuevo enlace de invitación.
+          </li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- Sección 3: Guía rápida de decisión -->
+    <section class="guide-section" aria-label="Qué opción usar según tu caso">
+      <div class="section-header">
+        <p class="eyebrow">Guía rápida de decisión</p>
+        <h2>¿Qué debo hacer según mi caso?</h2>
+      </div>
+
+      <div class="decision-grid">
+        <article class="decision-card case-safe">
+          <div class="decision-meta">
+            <span class="case-badge safe">Caso A · Navegador habitual</span>
+            <h3>Entro desde mi navegador y ordenador de siempre</h3>
+          </div>
+          <p class="decision-answer">
+            <strong>Solo abre la página principal.</strong> Tu sesión carga automáticamente. Si ves la pantalla de acceso, comprueba primero que no estés en una ventana de incógnito ni en un navegador distinto al habitual.
+          </p>
+        </article>
+
+        <article class="decision-card case-token">
+          <div class="decision-meta">
+            <span class="case-badge token">Caso B · Cambio de equipo o cookies</span>
+            <h3>Entro desde otro navegador, otro PC, móvil, incógnito o borré cookies</h3>
+          </div>
+          <p class="decision-answer">
+            Ve a la pestaña <strong>«Recuperar con token»</strong> en la portada y pega el código del archivo <code>.txt</code> que descargaste al activar tu invitación. Tendrás acceso inmediato sin bloquear ni resetear tu cuenta.
+          </p>
+        </article>
+
+        <article class="decision-card case-link">
+          <div class="decision-meta">
+            <span class="case-badge link">Caso C · Enlace antiguo del correo</span>
+            <h3>El enlace de invitación del correo da error al abrirlo</h3>
+          </div>
+          <p class="decision-answer">
+            Si ya lo habías abierto alguna vez en ese navegador, <strong>tu cuenta ya estaba activada</strong> (el enlace es de un solo uso). Entra directamente al portal principal o usa tu token de recuperación.
+            <strong>No pulses «Volver a solicitar»</strong> salvo que realmente nunca hayas llegado a activarlo.
+          </p>
+        </article>
+
+        <article class="decision-card case-reset">
+          <div class="decision-meta">
+            <span class="case-badge reset">Caso D · Último recurso</span>
+            <h3>Perdí mi sesión en todos mis dispositivos Y ADEMÁS perdí mi token</h3>
+          </div>
+          <p class="decision-answer">
+            Únicamente en esta situación utiliza <strong>«Solicitar sesión»</strong> con tu correo corporativo y confirma el código de 6 dígitos. Ten presente que deberás esperar a que un administrador te envíe una nueva invitación por email.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <!-- Acción final -->
+    <div class="guide-cta-bar">
+      <div class="cta-copy">
+        <strong>¿Listo para acceder a tus vacaciones?</strong>
+        <span>Recuerda probar primero en tu navegador habitual o con tu token de recuperación antes de solicitar una sesión nueva.</span>
+      </div>
+      <a routerLink="/" class="btn-primary-portal">
+        <span>Ir al portal de usuario</span>
+        <span aria-hidden="true">→</span>
+      </a>
+    </div>
+  </main>
+
+  <footer class="guide-simple-footer">
+    <div class="guide-simple-footer-inner">
+      <span class="footer-brand-copy">holidays tracker · Portal de Usuario</span>
+      <a routerLink="/" class="footer-back-link">Volver al acceso y mis vacaciones →</a>
+    </div>
+  </footer>
+</div>

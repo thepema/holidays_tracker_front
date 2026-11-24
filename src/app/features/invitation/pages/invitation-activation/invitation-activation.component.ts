@@ -1,16 +1,17 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService, SessionActivationResponse } from '../../../../core/services/api.service';
 import { UserSessionProfile, UserSessionService } from '../../../../core/services/user-session.service';
 import { extractErrorMessage } from '../../../../core/utils/http-helpers';
+import { UserSessionFooterComponent } from '../../../user-portal/components/user-session-footer/user-session-footer.component';
 
 type ActivationState = 'cargando' | 'exito' | 'error';
 
 @Component({
   selector: 'app-invitation-activation',
   standalone: true,
-  imports: [FormsModule],
+  imports: [FormsModule, RouterLink, UserSessionFooterComponent],
   templateUrl: './invitation-activation.component.html',
   styleUrls: ['./invitation-activation.component.css'],
 })

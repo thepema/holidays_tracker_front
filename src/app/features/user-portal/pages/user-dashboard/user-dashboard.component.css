@@ -119,6 +119,28 @@
   color: var(--text-muted);
 }
 
+.btn-guide-topbar {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--border-accent);
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+  font-size: 12.5px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.btn-guide-topbar:hover {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+  color: var(--text-on-accent);
+}
+
 .btn-refresh {
   display: inline-flex;
   align-items: center;
@@ -263,6 +285,7 @@
 /* Contenedor Principal                                                       */
 /* ========================================================================== */
 .user-main {
+  flex: 1 0 auto;
   max-width: 1440px;
   width: 100%;
   margin: 0 auto;

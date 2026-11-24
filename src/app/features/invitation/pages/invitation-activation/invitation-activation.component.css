@@ -3,15 +3,21 @@
   min-height: 100vh;
 }
 
-.invitation-page {
+.invitation-shell {
   display: flex;
-  align-items: center;
-  justify-content: center;
+  flex-direction: column;
   min-height: 100vh;
-  padding: 2.5rem 1.25rem;
   background:
     radial-gradient(ellipse 70% 50% at 50% 0%, var(--accent-subtle) 0%, transparent 70%),
     var(--bg-app);
+}
+
+.invitation-page {
+  flex: 1 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.25rem;
 }
 
 .activation-card {
@@ -285,6 +291,20 @@
   color: #3f2203;
 }
 
+.warning-guide-link {
+  display: inline-block;
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.warning-guide-link:hover {
+  color: var(--accent-medium);
+}
+
 /* Sección de confirmación */
 .confirmation-section {
   width: 100%;
@@ -366,6 +386,47 @@
   color: var(--accent-primary);
   margin-top: 0.5rem;
   margin-bottom: 0;
+}
+
+.help-action-warning {
+  margin: 0.65rem 0 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  background: var(--status-warning-bg);
+  border: 1px solid var(--status-warning-border);
+  font-size: 0.83rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+.help-links-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.1rem;
+  margin-top: 0.75rem;
+}
+
+.help-inline-link {
+  font-size: 0.83rem;
+  font-weight: 700;
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.help-inline-link:hover {
+  color: var(--accent-medium);
+}
+
+.request-reset-note {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--status-warning);
+  line-height: 1.4;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .error-actions {

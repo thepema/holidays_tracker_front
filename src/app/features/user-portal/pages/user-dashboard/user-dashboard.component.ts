@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import {
   OfficeHoliday,
   getVacationTypeLabel,
@@ -27,6 +28,7 @@ import { NotificationService } from '../../../../core/services/notification.serv
 import { UserSessionService } from '../../../../core/services/user-session.service';
 import { extractArray, extractErrorMessage } from '../../../../core/utils/http-helpers';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
+import { UserSessionFooterComponent } from '../../components/user-session-footer/user-session-footer.component';
 
 export interface UserCalendarDayCell {
   date: Date | null;
@@ -75,7 +77,7 @@ type RequestedFilter = 'todos' | 'proximos' | 'pasados';
 @Component({
   selector: 'app-user-dashboard',
   standalone: true,
-  imports: [FormsModule, AlertBannerComponent],
+  imports: [FormsModule, RouterLink, AlertBannerComponent, UserSessionFooterComponent],
   templateUrl: './user-dashboard.component.html',
   styleUrl: './user-dashboard.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
