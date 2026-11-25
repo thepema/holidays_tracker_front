@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, effect, inject } from '@angular/core';
 import { AdminStateService } from '../../../../core/services/admin-state.service';
 import { AuthService } from '../../../../core/services/auth.service';
 import { LoginPageComponent } from '../../../auth/components/login-page/login-page.component';
@@ -26,6 +26,14 @@ import { AdminDashboardComponent } from '../admin-dashboard/admin-dashboard.comp
 export class AdminPortalPageComponent {
   protected readonly auth = inject(AuthService);
   private readonly adminState = inject(AdminStateService);
+
+  constructor() {
+    effect(() => {
+      if (!this.auth.isAuthenticated()) {
+        this.adminState.reset();
+      }
+    });
+  }
 
   protected onLogout(): void {
     this.auth.logout();

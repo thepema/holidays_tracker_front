@@ -41,7 +41,6 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
   readonly selectedTeamFilter = input<number | null>(null);
   readonly selectedOfficeFilter = input<number | null>(null);
   readonly pendingCount = input.required<number>();
-  readonly userYearCounts = input.required<Map<number, number>>();
 
   readonly createClick = output<void>();
   readonly manageTeamsClick = output<void>();
@@ -129,10 +128,6 @@ export class TeamPanelComponent implements AfterViewInit, OnDestroy {
 
   protected userColor(user: AdminUser): UserColorPalette {
     return getUserColor(user.id, getUserDisplayName(user));
-  }
-
-  protected yearCount(userId: number): number {
-    return this.userYearCounts().get(userId) ?? 0;
   }
 
   protected vacationTypeLabel(value: string): string {

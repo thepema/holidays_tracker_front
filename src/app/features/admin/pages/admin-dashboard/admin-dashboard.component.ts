@@ -11,11 +11,8 @@ import {
   AdminOffice,
   AdminTeam,
   AdminUser,
-  OfficeHoliday,
   UserFormPayload,
-  getUserDisplayName,
 } from '../../../../core/models/user.model';
-import { VacationDay } from '../../../../core/models/vacation.model';
 import { AdminStateService } from '../../../../core/services/admin-state.service';
 import { NotificationService } from '../../../../core/services/notification.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
@@ -75,33 +72,6 @@ export class AdminDashboardComponent implements OnInit {
   protected readonly activeModal = signal<ActiveModal>('');
   protected readonly selectedUserForModal = signal<AdminUser | null>(null);
 
-  protected readonly selectedUserVacations = computed<VacationDay[]>(() => {
-    const user = this.selectedUserForModal();
-    if (!user) {
-      return [];
-    }
-    const targetName = getUserDisplayName(user).toLowerCase();
-    return this.state.vacations().filter((vac) => {
-      if (vac.usuarioId === user.id) {
-        return true;
-      }
-      const vacName = `${vac.nombre ?? ''} ${vac.apellidos ?? ''}`.trim().toLowerCase();
-      return Boolean(targetName && vacName && vacName === targetName);
-    });
-  });
-
-  protected readonly selectedUserHolidays = computed<OfficeHoliday[]>(() => {
-    const user = this.selectedUserForModal();
-    if (!user) {
-      return [];
-    }
-    const liveUser = this.state.users().find((u) => u.id === user.id) ?? user;
-    if (!liveUser.oficinaId) {
-      return [];
-    }
-    return this.state.offices().find((o) => o.id === liveUser.oficinaId)?.festivos ?? [];
-  });
-
   protected readonly currentDateFormatted = computed<string>(() =>
     new Intl.DateTimeFormat('es-ES', {
       weekday: 'long',
@@ -136,6 +106,7 @@ export class AdminDashboardComponent implements OnInit {
   protected openVacationsModal(user: AdminUser): void {
     this.selectedUserForModal.set(user);
     this.activeModal.set('vacations');
+    this.state.loadUserVacationsModalData(user.id, user.oficinaId ?? null);
   }
 
   protected openConfirmBulkModal(): void {
@@ -153,6 +124,11 @@ export class AdminDashboardComponent implements OnInit {
   protected closeModal(): void {
     this.activeModal.set('');
     this.selectedUserForModal.set(null);
+    this.state.clearUserVacationsModalData();
+  }
+
+  protected handleCalendarMonthChange(event: { year: number; month: number }): void {
+    this.state.setCalendarMonth(event.year, event.month);
   }
 
   protected handleSaveUser(payload: UserFormPayload): void {

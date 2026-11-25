@@ -47,6 +47,16 @@
   line-height: 1.45;
 }
 
+.calendar-loading-inline {
+  color: var(--accent-medium);
+  font-weight: 600;
+}
+
+.calendar-wrapper.is-loading {
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
 .header-controls-group {
   display: flex;
   justify-content: flex-end;

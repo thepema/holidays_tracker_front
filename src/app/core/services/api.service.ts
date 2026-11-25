@@ -1,10 +1,36 @@
-import { Injectable, inject } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { Observable } from 'rxjs';
+import { Injectable, inject, signal } from '@angular/core';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpParams,
+} from '@angular/common/http';
+import { Observable, catchError, defer, throwError } from 'rxjs';
 import { environment } from '../../../environments/environment';
-import { AdminUser, UserFormPayload } from '../models/user.model';
+import {
+  AdminOffice,
+  AdminTeam,
+  AdminUser,
+  OfficeHoliday,
+  UserFormPayload,
+} from '../models/user.model';
+import { VacationDay } from '../models/vacation.model';
 
 export type { AdminUser, UserFormPayload };
+
+const ADMIN_TOKEN_STORAGE_KEY = 'holidays_tracker_admin_token';
+
+/**
+ * Resumen de sesiones devuelto por `GET /api/sesiones/resumen`.
+ */
+export interface AdminSessionsSummaryResponse {
+  pendientes: AdminUser[];
+  solicitados: AdminUser[];
+  totalPendientes: number;
+  totalSolicitados: number;
+  totalPendientesYSolicitados: number;
+  totalAutenticados: number;
+}
 
 /**
  * Respuesta devuelta por el backend al activar o recuperar una sesión de usuario.
@@ -32,6 +58,50 @@ export interface SessionActivationResponse {
 export class ApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = this.resolveBaseUrl();
+  private readonly adminTokenSignal = signal<string>(this.readInitialAdminToken());
+
+  /** Señal de solo lectura con el token Bearer de administrador activo. */
+  readonly adminToken = this.adminTokenSignal.asReadonly();
+
+  /**
+   * Comprueba si existe un token de administrador válido (no vacío y no expirado).
+   * Si existía un token caducado en memoria/storage, lo limpia automáticamente.
+   */
+  hasValidAdminToken(): boolean {
+    const current = this.adminTokenSignal().trim();
+    if (!current) {
+      return false;
+    }
+    if (this.isAdminTokenExpired(current)) {
+      this.clearAdminToken();
+      return false;
+    }
+    return true;
+  }
+
+  /**
+   * Registra y persiste en `sessionStorage` el token Bearer de administrador.
+   */
+  setAdminToken(token: string): boolean {
+    const cleanToken = token.trim();
+    if (!cleanToken || this.isAdminTokenExpired(cleanToken)) {
+      this.clearAdminToken();
+      return false;
+    }
+    this.saveTokenToSessionStorage(cleanToken);
+    this.adminTokenSignal.set(cleanToken);
+    return true;
+  }
+
+  /**
+   * Elimina el token Bearer de administrador tanto de memoria como de `sessionStorage`.
+   */
+  clearAdminToken(): void {
+    this.removeTokenFromSessionStorage();
+    if (this.adminTokenSignal() !== '') {
+      this.adminTokenSignal.set('');
+    }
+  }
 
   /**
    * POST /api/admin/login
@@ -40,8 +110,11 @@ export class ApiService {
    * @param password Contraseña de administrador.
    * @returns Observable con la respuesta de autenticación (incluyendo el token Bearer).
    */
-  login(password: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/admin/login`, { password });
+  login(password: string): Observable<{ token: string; tokenType: string; expiresIn: number }> {
+    return this.http.post<{ token: string; tokenType: string; expiresIn: number }>(
+      `${this.baseUrl}/api/admin/login`,
+      { password }
+    );
   }
 
   /**
@@ -65,11 +138,12 @@ export class ApiService {
    * Obtiene todos los usuarios excluyendo los que tienen cargo de administrador
    * ('Administrador', 'Administradora', 'admin').
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el listado de usuarios registrados.
    */
-  getUsers(token?: string): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/usuarios`, { headers: this.auth(token) });
+  getUsers(): Observable<{ usuarios: AdminUser[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ usuarios: AdminUser[] }>(`${this.baseUrl}/api/usuarios`, { headers })
+    );
   }
 
   /**
@@ -77,11 +151,27 @@ export class ApiService {
    * Obtiene todos los datos de los usuarios a los que se les ha enviado la invitación
    * (estado = 'proceso') y aún no han completado la autenticación.
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la lista de usuarios pendientes de activación.
    */
-  getPendingUsers(token?: string): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/usuarios/pendientes`, { headers: this.auth(token) });
+  getPendingUsers(): Observable<{ usuarios: AdminUser[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ usuarios: AdminUser[] }>(`${this.baseUrl}/api/usuarios/pendientes`, {
+        headers,
+      })
+    );
+  }
+
+  /**
+   * GET /api/sesiones/resumen (administrador)
+   * Obtiene el resumen de sesiones de usuarios desde servidor: listados de pendientes (`proceso`),
+   * solicitados (`solicitado`) y contadores totales (incluyendo usuarios autenticados).
+   */
+  getSessionsSummary(): Observable<AdminSessionsSummaryResponse> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<AdminSessionsSummaryResponse>(`${this.baseUrl}/api/sesiones/resumen`, {
+        headers,
+      })
+    );
   }
 
   /**
@@ -89,11 +179,12 @@ export class ApiService {
    * Crea un nuevo usuario en el sistema.
    *
    * @param user Datos del usuario a crear.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la respuesta de creación del usuario.
    */
-  createUser(user: UserFormPayload, token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/usuarios`, user, { headers: this.auth(token) });
+  createUser(user: UserFormPayload): Observable<{ usuario: AdminUser }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ usuario: AdminUser }>(`${this.baseUrl}/api/usuarios`, user, { headers })
+    );
   }
 
   /**
@@ -102,22 +193,26 @@ export class ApiService {
    *
    * @param userId Identificador del usuario a modificar.
    * @param user Campos parciales del usuario a actualizar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el usuario actualizado.
    */
-  updateUser(userId: number, user: Partial<AdminUser>, token?: string): Observable<unknown> {
-    return this.http.patch(`${this.baseUrl}/api/usuarios/${userId}`, user, { headers: this.auth(token) });
+  updateUser(userId: number, user: Partial<AdminUser>): Observable<{ usuario: AdminUser }> {
+    return this.withAdminAuth((headers) =>
+      this.http.patch<{ usuario: AdminUser }>(`${this.baseUrl}/api/usuarios/${userId}`, user, {
+        headers,
+      })
+    );
   }
 
   /**
    * GET /api/equipos (administrador)
    * Obtiene el listado completo de equipos registrados.
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la lista de equipos.
    */
-  getTeams(token?: string): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/equipos`, { headers: this.auth(token) });
+  getTeams(): Observable<{ equipos: AdminTeam[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ equipos: AdminTeam[] }>(`${this.baseUrl}/api/equipos`, { headers })
+    );
   }
 
   /**
@@ -125,14 +220,12 @@ export class ApiService {
    * Crea un nuevo equipo y opcionalmente le asigna usuarios iniciales.
    *
    * @param payload Nombre del equipo y lista opcional de IDs de usuarios.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el equipo creado.
    */
-  createTeam(
-    payload: { nombre: string; usuarioIds?: number[] },
-    token?: string
-  ): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/equipos`, payload, { headers: this.auth(token) });
+  createTeam(payload: { nombre: string; usuarioIds?: number[] }): Observable<{ equipo: AdminTeam }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ equipo: AdminTeam }>(`${this.baseUrl}/api/equipos`, payload, { headers })
+    );
   }
 
   /**
@@ -141,17 +234,17 @@ export class ApiService {
    *
    * @param equipoId Identificador del equipo a actualizar.
    * @param payload Campos a modificar (nombre y/o lista de IDs de usuarios).
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el equipo actualizado.
    */
   updateTeam(
     equipoId: number,
-    payload: { nombre?: string; usuarioIds?: number[] },
-    token?: string
-  ): Observable<unknown> {
-    return this.http.patch(`${this.baseUrl}/api/equipos/${equipoId}`, payload, {
-      headers: this.auth(token),
-    });
+    payload: { nombre?: string; usuarioIds?: number[] }
+  ): Observable<{ equipo: AdminTeam }> {
+    return this.withAdminAuth((headers) =>
+      this.http.patch<{ equipo: AdminTeam }>(`${this.baseUrl}/api/equipos/${equipoId}`, payload, {
+        headers,
+      })
+    );
   }
 
   /**
@@ -159,24 +252,27 @@ export class ApiService {
    * Elimina un equipo existente del sistema.
    *
    * @param equipoId Identificador del equipo a eliminar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación de eliminación.
    */
-  deleteTeam(equipoId: number, token?: string): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/api/equipos/${equipoId}`, {
-      headers: this.auth(token),
-    });
+  deleteTeam(equipoId: number): Observable<{ eliminado: boolean; id: number }> {
+    return this.withAdminAuth((headers) =>
+      this.http.delete<{ eliminado: boolean; id: number }>(
+        `${this.baseUrl}/api/equipos/${equipoId}`,
+        { headers }
+      )
+    );
   }
 
   /**
    * GET /api/oficinas (administrador)
    * Obtiene todas las oficinas junto con sus usuarios, calendarios y festivos.
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la lista de oficinas.
    */
-  getOffices(token?: string): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/oficinas`, { headers: this.auth(token) });
+  getOffices(): Observable<{ oficinas: AdminOffice[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ oficinas: AdminOffice[] }>(`${this.baseUrl}/api/oficinas`, { headers })
+    );
   }
 
   /**
@@ -184,14 +280,15 @@ export class ApiService {
    * Crea una nueva oficina y opcionalmente vincula usuarios iniciales.
    *
    * @param payload Nombre de la oficina y lista opcional de IDs de usuarios.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la oficina creada.
    */
-  createOffice(
-    payload: { nombre: string; usuarioIds?: number[] },
-    token?: string
-  ): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/oficinas`, payload, { headers: this.auth(token) });
+  createOffice(payload: {
+    nombre: string;
+    usuarioIds?: number[] | undefined;
+  }): Observable<{ oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ oficina: AdminOffice }>(`${this.baseUrl}/api/oficinas`, payload, { headers })
+    );
   }
 
   /**
@@ -200,17 +297,19 @@ export class ApiService {
    *
    * @param oficinaId Identificador de la oficina a modificar.
    * @param payload Campos a actualizar (nombre y/o lista de IDs de usuarios).
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la oficina actualizada.
    */
   updateOffice(
     oficinaId: number,
-    payload: { nombre?: string; usuarioIds?: number[] },
-    token?: string
-  ): Observable<unknown> {
-    return this.http.patch(`${this.baseUrl}/api/oficinas/${oficinaId}`, payload, {
-      headers: this.auth(token),
-    });
+    payload: { nombre?: string; usuarioIds?: number[] }
+  ): Observable<{ oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.patch<{ oficina: AdminOffice }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}`,
+        payload,
+        { headers }
+      )
+    );
   }
 
   /**
@@ -218,13 +317,15 @@ export class ApiService {
    * Elimina una oficina existente junto con sus calendarios y festivos asociados.
    *
    * @param oficinaId Identificador de la oficina a eliminar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación de eliminación.
    */
-  deleteOffice(oficinaId: number, token?: string): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/api/oficinas/${oficinaId}`, {
-      headers: this.auth(token),
-    });
+  deleteOffice(oficinaId: number): Observable<{ eliminado: boolean; id: number }> {
+    return this.withAdminAuth((headers) =>
+      this.http.delete<{ eliminado: boolean; id: number }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}`,
+        { headers }
+      )
+    );
   }
 
   /**
@@ -233,14 +334,15 @@ export class ApiService {
    *
    * @param oficinaId Identificador de la oficina.
    * @param anio Año del calendario a crear.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el calendario creado.
    */
-  createOfficeCalendar(oficinaId: number, anio: number, token?: string): Observable<unknown> {
-    return this.http.post(
-      `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios`,
-      { anio },
-      { headers: this.auth(token) }
+  createOfficeCalendar(oficinaId: number, anio: number): Observable<{ oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ oficina: AdminOffice }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios`,
+        { anio },
+        { headers }
+      )
     );
   }
 
@@ -250,17 +352,17 @@ export class ApiService {
    *
    * @param oficinaId Identificador de la oficina.
    * @param calendarioId Identificador del calendario anual a eliminar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación de eliminación.
    */
   deleteOfficeCalendar(
     oficinaId: number,
-    calendarioId: number,
-    token?: string
-  ): Observable<unknown> {
-    return this.http.delete(
-      `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios/${calendarioId}`,
-      { headers: this.auth(token) }
+    calendarioId: number
+  ): Observable<{ eliminado: boolean; oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.delete<{ eliminado: boolean; oficina: AdminOffice }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}/calendarios/${calendarioId}`,
+        { headers }
+      )
     );
   }
 
@@ -270,17 +372,19 @@ export class ApiService {
    *
    * @param oficinaId Identificador de la oficina.
    * @param payload Datos del festivo (fecha en formato `YYYY-MM-DD`, nombre y año opcional).
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el festivo registrado.
    */
   addOfficeHoliday(
     oficinaId: number,
-    payload: { fecha: string; nombre: string; anio?: number },
-    token?: string
-  ): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/oficinas/${oficinaId}/festivos`, payload, {
-      headers: this.auth(token),
-    });
+    payload: { fecha: string; nombre: string; anio?: number }
+  ): Observable<{ oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ oficina: AdminOffice }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}/festivos`,
+        payload,
+        { headers }
+      )
+    );
   }
 
   /**
@@ -289,45 +393,98 @@ export class ApiService {
    *
    * @param oficinaId Identificador de la oficina.
    * @param festivoId Identificador del festivo a eliminar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación de eliminación.
    */
   deleteOfficeHoliday(
     oficinaId: number,
-    festivoId: number,
-    token?: string
-  ): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/api/oficinas/${oficinaId}/festivos/${festivoId}`, {
-      headers: this.auth(token),
-    });
+    festivoId: number
+  ): Observable<{ eliminado: boolean; id: number; oficina: AdminOffice }> {
+    return this.withAdminAuth((headers) =>
+      this.http.delete<{ eliminado: boolean; id: number; oficina: AdminOffice }>(
+        `${this.baseUrl}/api/oficinas/${oficinaId}/festivos/${festivoId}`,
+        { headers }
+      )
+    );
   }
 
   /**
    * GET /api/vacaciones (administrador)
-   * Obtiene las vacaciones registradas, con filtros opcionales por mes, año y equipo.
-   *
-   * @param token Token Bearer de administrador opcional.
-   * @param params Filtros opcionales (`mes`, `anio`, `equipoId`).
-   * @returns Observable con las vacaciones filtradas.
+   * Obtiene las vacaciones registradas filtradas desde servidor por mes, año, equipo, oficina o usuarios.
    */
-  getVacations(
-    token?: string,
-    params?: { mes?: number; anio?: number; equipoId?: number | null }
-  ): Observable<unknown> {
-    const queryParams: Record<string, string> = {};
+  getVacations(params?: {
+    mes?: number;
+    anio?: number;
+    equipoId?: number | null;
+    oficinaId?: number | null;
+    usuarios?: number[];
+  }): Observable<{ vacaciones: VacationDay[] }> {
+    let queryParams = new HttpParams();
     if (params?.anio) {
-      queryParams['anio'] = String(params.anio);
+      queryParams = queryParams.set('anio', String(params.anio));
     }
     if (params?.mes) {
-      queryParams['mes'] = String(params.mes);
+      queryParams = queryParams.set('mes', String(params.mes));
     }
     if (params?.equipoId) {
-      queryParams['equipoId'] = String(params.equipoId);
+      queryParams = queryParams.set('equipoId', String(params.equipoId));
     }
-    return this.http.get(`${this.baseUrl}/api/vacaciones`, {
-      headers: this.auth(token),
-      params: queryParams,
-    });
+    if (params?.oficinaId) {
+      queryParams = queryParams.set('oficinaId', String(params.oficinaId));
+    }
+    if (params?.usuarios?.length) {
+      for (const userId of params.usuarios) {
+        if (Number.isInteger(userId) && userId > 0) {
+          queryParams = queryParams.append('usuarios', String(userId));
+        }
+      }
+    }
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ vacaciones: VacationDay[] }>(`${this.baseUrl}/api/vacaciones`, {
+        headers,
+        params: queryParams,
+      })
+    );
+  }
+
+  /**
+   * GET /api/vacaciones/anios (administrador)
+   * Obtiene la lista de años distintos que tienen días de vacaciones registrados en BD.
+   */
+  getVacationYears(): Observable<{ anios: number[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ anios: number[] }>(`${this.baseUrl}/api/vacaciones/anios`, { headers })
+    );
+  }
+
+  /**
+   * GET /api/festivos (administrador)
+   * Obtiene los días festivos filtrados desde servidor por año, mes, oficina o equipo.
+   */
+  getAdminHolidays(params?: {
+    anio?: number;
+    mes?: number;
+    oficinaId?: number | null;
+    equipoId?: number | null;
+  }): Observable<{ festivos: OfficeHoliday[] }> {
+    let queryParams = new HttpParams();
+    if (params?.anio) {
+      queryParams = queryParams.set('anio', String(params.anio));
+    }
+    if (params?.mes) {
+      queryParams = queryParams.set('mes', String(params.mes));
+    }
+    if (params?.oficinaId) {
+      queryParams = queryParams.set('oficinaId', String(params.oficinaId));
+    }
+    if (params?.equipoId) {
+      queryParams = queryParams.set('equipoId', String(params.equipoId));
+    }
+    return this.withAdminAuth((headers) =>
+      this.http.get<{ festivos: OfficeHoliday[] }>(`${this.baseUrl}/api/festivos`, {
+        headers,
+        params: queryParams,
+      })
+    );
   }
 
   /**
@@ -336,11 +493,19 @@ export class ApiService {
    *
    * @param usuarioId Identificador del usuario.
    * @param fechas Lista de fechas en formato `YYYY-MM-DD`.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el resultado del registro de vacaciones.
    */
-  addVacations(usuarioId: number, fechas: string[], token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/vacaciones`, { usuarioId, fechas }, { headers: this.auth(token) });
+  addVacations(
+    usuarioId: number,
+    fechas: string[]
+  ): Observable<{ guardadas: number; vacaciones: VacationDay[] }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ guardadas: number; vacaciones: VacationDay[] }>(
+        `${this.baseUrl}/api/vacaciones`,
+        { usuarioId, fechas },
+        { headers }
+      )
+    );
   }
 
   /**
@@ -348,13 +513,15 @@ export class ApiService {
    * Elimina un día de vacaciones registrado desde el panel de administración.
    *
    * @param vacacionId Identificador del registro de vacación a eliminar.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación de eliminación.
    */
-  deleteVacationAdmin(vacacionId: number, token?: string): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/api/vacaciones/${vacacionId}`, {
-      headers: this.auth(token),
-    });
+  deleteVacationAdmin(vacacionId: number): Observable<{ eliminado: boolean; id: number }> {
+    return this.withAdminAuth((headers) =>
+      this.http.delete<{ eliminado: boolean; id: number }>(
+        `${this.baseUrl}/api/vacaciones/${vacacionId}`,
+        { headers }
+      )
+    );
   }
 
   /**
@@ -362,14 +529,15 @@ export class ApiService {
    * Envía un correo de recordatorio a todos los usuarios autenticados para que registren
    * sus vacaciones previstas en los próximos meses.
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el resumen del envío (`total`, `enviadas`, `fallidas`).
    */
-  sendVacationReminders(token?: string): Observable<unknown> {
-    return this.http.post(
-      `${this.baseUrl}/api/vacaciones/recordatorio`,
-      {},
-      { headers: this.auth(token) }
+  sendVacationReminders(): Observable<{ total: number; enviadas: number; fallidas: number }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ total: number; enviadas: number; fallidas: number }>(
+        `${this.baseUrl}/api/vacaciones/recordatorio`,
+        {},
+        { headers }
+      )
     );
   }
 
@@ -377,11 +545,22 @@ export class ApiService {
    * POST /api/sesiones/invitaciones (administrador)
    * Envía de forma masiva enlaces de invitación a los usuarios pendientes de activación.
    *
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con el resultado del envío masivo de invitaciones.
    */
-  sendBulkInvitations(token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/sesiones/invitaciones`, {}, { headers: this.auth(token) });
+  sendBulkInvitations(): Observable<{
+    total: number;
+    enviadas: number;
+    fallidas: number;
+    omitidas: number;
+  }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{
+        total: number;
+        enviadas: number;
+        fallidas: number;
+        omitidas: number;
+      }>(`${this.baseUrl}/api/sesiones/invitaciones`, {}, { headers })
+    );
   }
 
   /**
@@ -389,11 +568,16 @@ export class ApiService {
    * Envía o reenvía una invitación individual de acceso a un usuario.
    *
    * @param usuarioId Identificador del usuario destinatario.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación del envío.
    */
-  inviteUser(usuarioId: number, token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/usuarios/${usuarioId}/invitacion`, {}, { headers: this.auth(token) });
+  inviteUser(usuarioId: number): Observable<{ enviada: boolean }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ enviada: boolean }>(
+        `${this.baseUrl}/api/usuarios/${usuarioId}/invitacion`,
+        {},
+        { headers }
+      )
+    );
   }
 
   /**
@@ -401,11 +585,16 @@ export class ApiService {
    * Revoca la sesión activa y el código de recuperación de un usuario.
    *
    * @param usuarioId Identificador del usuario cuya sesión se cerrará.
-   * @param token Token Bearer de administrador opcional.
    * @returns Observable con la confirmación del cierre de sesión.
    */
-  closeSession(usuarioId: number, token?: string): Observable<unknown> {
-    return this.http.post(`${this.baseUrl}/api/sesiones/cerrar`, { usuarioId }, { headers: this.auth(token) });
+  closeSession(usuarioId: number): Observable<{ cerrado: boolean; usuarioId: number }> {
+    return this.withAdminAuth((headers) =>
+      this.http.post<{ cerrado: boolean; usuarioId: number }>(
+        `${this.baseUrl}/api/sesiones/cerrar`,
+        { usuarioId },
+        { headers }
+      )
+    );
   }
 
   /**
@@ -512,8 +701,10 @@ export class ApiService {
    *
    * @returns Observable con la lista de vacaciones del usuario autenticado.
    */
-  getUserVacations(): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/vacaciones`, { withCredentials: true });
+  getUserVacations(): Observable<{ vacaciones: VacationDay[] }> {
+    return this.http.get<{ vacaciones: VacationDay[] }>(`${this.baseUrl}/api/vacaciones`, {
+      withCredentials: true,
+    });
   }
 
   /**
@@ -522,8 +713,16 @@ export class ApiService {
    *
    * @returns Observable con los días festivos y metadatos de la oficina del usuario.
    */
-  getUserHolidays(): Observable<unknown> {
-    return this.http.get(`${this.baseUrl}/api/festivos`, { withCredentials: true });
+  getUserHolidays(): Observable<{
+    oficinaId: number | null;
+    oficinaNombre: string | null;
+    festivos: OfficeHoliday[];
+  }> {
+    return this.http.get<{
+      oficinaId: number | null;
+      oficinaNombre: string | null;
+      festivos: OfficeHoliday[];
+    }>(`${this.baseUrl}/api/festivos`, { withCredentials: true });
   }
 
   /**
@@ -533,8 +732,10 @@ export class ApiService {
    * @param fechas Lista de fechas en formato `YYYY-MM-DD` a solicitar.
    * @returns Observable con la respuesta de registro de vacaciones.
    */
-  saveUserVacations(fechas: string[]): Observable<unknown> {
-    return this.http.post(
+  saveUserVacations(
+    fechas: string[]
+  ): Observable<{ guardadas: number; vacaciones: VacationDay[] }> {
+    return this.http.post<{ guardadas: number; vacaciones: VacationDay[] }>(
       `${this.baseUrl}/api/vacaciones`,
       { fechas },
       { withCredentials: true }
@@ -549,8 +750,11 @@ export class ApiService {
    * @param fecha Nueva fecha en formato `YYYY-MM-DD`.
    * @returns Observable con el registro de vacación actualizado.
    */
-  updateUserVacationDate(vacacionId: number, fecha: string): Observable<unknown> {
-    return this.http.patch(
+  updateUserVacationDate(
+    vacacionId: number,
+    fecha: string
+  ): Observable<{ vacacion: VacationDay }> {
+    return this.http.patch<{ vacacion: VacationDay }>(
       `${this.baseUrl}/api/vacaciones/${vacacionId}`,
       { fecha },
       { withCredentials: true }
@@ -564,10 +768,13 @@ export class ApiService {
    * @param vacacionId Identificador del día de vacaciones a cancelar.
    * @returns Observable con la confirmación de cancelación.
    */
-  deleteUserVacation(vacacionId: number): Observable<unknown> {
-    return this.http.delete(`${this.baseUrl}/api/vacaciones/${vacacionId}`, {
-      withCredentials: true,
-    });
+  deleteUserVacation(vacacionId: number): Observable<{ eliminado: boolean; id: number }> {
+    return this.http.delete<{ eliminado: boolean; id: number }>(
+      `${this.baseUrl}/api/vacaciones/${vacacionId}`,
+      {
+        withCredentials: true,
+      }
+    );
   }
 
   /**
@@ -591,12 +798,111 @@ export class ApiService {
   }
 
   /**
-   * Construye las cabeceras HTTP de autorización Bearer cuando se proporciona un token.
-   *
-   * @param token Token Bearer de administrador opcional.
-   * @returns Instancia de `HttpHeaders` con la cabecera `Authorization` si existe token.
+   * Centraliza la validación del token Bearer de administrador y la inyección de cabeceras
+   * antes de ejecutar cualquier petición administrativa:
+   * - Verifica que exista un token activo en la sesión.
+   * - Comprueba que no haya caducado según su claim `exp`.
+   * - Si el servidor responde `401 Unauthorized`, invalida automáticamente el token almacenado.
    */
-  private auth(token?: string): HttpHeaders {
-    return token ? new HttpHeaders({ Authorization: `Bearer ${token}` }) : new HttpHeaders();
+  private withAdminAuth<T>(
+    requestFactory: (headers: HttpHeaders) => Observable<T>
+  ): Observable<T> {
+    return defer(() => {
+      const token = this.adminTokenSignal().trim();
+      if (!token) {
+        return throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 401,
+              statusText: 'Unauthorized',
+              error: { error: 'No hay una sesión de administrador activa.' },
+            })
+        );
+      }
+
+      if (this.isAdminTokenExpired(token)) {
+        this.clearAdminToken();
+        return throwError(
+          () =>
+            new HttpErrorResponse({
+              status: 401,
+              statusText: 'Unauthorized',
+              error: { error: 'La sesión de administrador ha expirado. Vuelve a iniciar sesión.' },
+            })
+        );
+      }
+
+      const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+      return requestFactory(headers).pipe(
+        catchError((error: unknown) => {
+          if (error instanceof HttpErrorResponse && error.status === 401) {
+            this.clearAdminToken();
+          }
+          return throwError(() => error);
+        })
+      );
+    });
+  }
+
+  private isAdminTokenExpired(token: string): boolean {
+    const parts = token.split('.');
+    if (parts.length !== 2 || !parts[0]) {
+      return false;
+    }
+
+    try {
+      const base64 = parts[0].replace(/-/g, '+').replace(/_/g, '/');
+      const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+      if (typeof atob !== 'function') {
+        return false;
+      }
+      const claims = JSON.parse(atob(padded)) as { exp?: unknown };
+      if (typeof claims?.exp === 'number' && Number.isFinite(claims.exp)) {
+        return claims.exp <= Math.floor(Date.now() / 1000);
+      }
+    } catch {
+      return false;
+    }
+
+    return false;
+  }
+
+  private readInitialAdminToken(): string {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        const stored = (sessionStorage.getItem(ADMIN_TOKEN_STORAGE_KEY) ?? '').trim();
+        if (!stored) {
+          return '';
+        }
+        if (this.isAdminTokenExpired(stored)) {
+          sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+          return '';
+        }
+        return stored;
+      }
+    } catch {
+      // Ignorar errores de acceso a sessionStorage en contextos restringidos
+    }
+    return '';
+  }
+
+  private saveTokenToSessionStorage(token: string): void {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.setItem(ADMIN_TOKEN_STORAGE_KEY, token);
+      }
+    } catch {
+      // Ignorar errores de escritura en sessionStorage
+    }
+  }
+
+  private removeTokenFromSessionStorage(): void {
+    try {
+      if (typeof sessionStorage !== 'undefined') {
+        sessionStorage.removeItem(ADMIN_TOKEN_STORAGE_KEY);
+      }
+    } catch {
+      // Ignorar errores al limpiar sessionStorage
+    }
   }
 }

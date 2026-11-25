@@ -58,14 +58,17 @@
     @if (activeView() === 'dashboard') {
       <div class="dashboard-layout">
         <app-vacation-calendar
-          [users]="state.calendarUsers()"
           [vacations]="state.calendarVacations()"
           [teams]="state.teams()"
           [offices]="state.offices()"
           [holidays]="state.calendarHolidays()"
+          [currentYear]="state.calendarYear()"
+          [currentMonth]="state.calendarMonth()"
+          [loading]="state.calendarLoading()"
           [selectedTeamId]="state.selectedTeamFilter()"
           [selectedOfficeId]="state.selectedOfficeFilter()"
           [deletingVacationId]="state.deletingVacationId()"
+          (monthChange)="handleCalendarMonthChange($event)"
           (teamFilterChange)="state.setTeamFilter($event)"
           (officeFilterChange)="state.setOfficeFilter($event)"
           (deleteVacation)="handleDeleteVacationFromCalendar($event)"
@@ -78,7 +81,6 @@
           [selectedTeamFilter]="state.selectedTeamFilter()"
           [selectedOfficeFilter]="state.selectedOfficeFilter()"
           [pendingCount]="state.pendingUsers().length"
-          [userYearCounts]="state.userCountByYearMap()"
           (createClick)="openCreateUserModal()"
           (manageTeamsClick)="openTeamsModal()"
           (manageOfficesClick)="openOfficesModal()"
@@ -161,8 +163,9 @@
 @if (activeModal() === 'vacations' && selectedUserForModal(); as targetUser) {
   <app-vacation-modal
     [user]="targetUser"
-    [userVacations]="selectedUserVacations()"
-    [userHolidays]="selectedUserHolidays()"
+    [userVacations]="state.modalUserVacations()"
+    [userHolidays]="state.modalUserHolidays()"
+    [loading]="state.modalLoading()"
     [saving]="state.saving()"
     [deletingVacationId]="state.deletingVacationId()"
     (saveDates)="handleSaveVacations($event)"
@@ -192,8 +195,8 @@
       <p class="confirm-text">
         Se enviará un correo electrónico a
         <strong>
-          {{ state.authenticatedUsers().length }}
-          {{ state.authenticatedUsers().length === 1 ? 'usuario autenticado' : 'usuarios autenticados' }}
+          {{ state.authenticatedUsersCount() }}
+          {{ state.authenticatedUsersCount() === 1 ? 'usuario autenticado' : 'usuarios autenticados' }}
         </strong>
         para recordarles que entren en la aplicación y registren sus vacaciones previstas para los
         próximos meses.
@@ -210,7 +213,7 @@
         <button
           type="button"
           class="btn-primary"
-          [disabled]="state.sendingReminders() || state.authenticatedUsers().length === 0"
+          [disabled]="state.sendingReminders() || state.authenticatedUsersCount() === 0"
           (click)="handleConfirmVacationReminder()"
         >
           {{ state.sendingReminders() ? 'Enviando…' : 'Sí, enviar recordatorio' }}

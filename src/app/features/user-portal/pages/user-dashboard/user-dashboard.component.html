@@ -9,11 +9,11 @@
       </div>
 
       <div class="topbar-actions">
-        @if (userProfile(); as profile) {
+        @if (state.userProfile(); as profile) {
           <div class="user-chip">
-            <span class="user-avatar">{{ userInitials() }}</span>
+            <span class="user-avatar">{{ state.userInitials() }}</span>
             <div class="user-meta">
-              <strong class="user-name">{{ userFullName() }}</strong>
+              <strong class="user-name">{{ state.userFullName() }}</strong>
               <span class="user-sub">
                 @if (profile.codigo) {
                   {{ profile.codigo }}
@@ -35,11 +35,11 @@
         <button
           type="button"
           class="btn-refresh"
-          [disabled]="loading()"
-          (click)="fetchVacations()"
+          [disabled]="state.loading()"
+          (click)="handleRefresh()"
           title="Sincronizar días de vacaciones"
         >
-          <span class="refresh-icon" [class.spinning]="loading()">↻</span>
+          <span class="refresh-icon" [class.spinning]="state.loading()">↻</span>
           <span class="refresh-text">Actualizar</span>
         </button>
       </div>
@@ -437,8 +437,8 @@
             <button
               type="button"
               class="btn-link-clear"
-              [disabled]="savingVacations()"
-              (click)="clearPendingSelection()"
+              [disabled]="state.savingVacations()"
+              (click)="state.clearPendingSelection()"
             >
               Limpiar todo
             </button>
@@ -468,8 +468,8 @@
                   <button
                     type="button"
                     class="btn-remove-day"
-                    [disabled]="savingVacations()"
-                    (click)="removePendingDate(item.dateKey)"
+                    [disabled]="state.savingVacations()"
+                    (click)="state.removePendingDate(item.dateKey)"
                     [attr.aria-label]="'Quitar ' + item.formattedDate"
                     title="Quitar de la selección"
                   >
@@ -483,19 +483,19 @@
           <button
             type="button"
             class="btn-submit-vacations"
-            [disabled]="savingVacations() || pendingSelectedList().length === 0"
-            (click)="submitSelectedVacations()"
+            [disabled]="state.savingVacations() || pendingSelectedList().length === 0"
+            (click)="handleSubmitVacations()"
           >
             <span>
               {{
-                savingVacations()
+                state.savingVacations()
                   ? 'Guardando vacaciones…'
                   : 'Enviar y guardar ' +
                     pendingSelectedList().length +
                     (pendingSelectedList().length === 1 ? ' día' : ' días')
               }}
             </span>
-            @if (!savingVacations()) {
+            @if (!state.savingVacations()) {
               <span aria-hidden="true">→</span>
             }
           </button>
@@ -507,7 +507,7 @@
         <header class="side-card-header">
           <div>
             <p class="eyebrow">HISTORIAL Y GESTIÓN</p>
-            <h3>Mis días de vacaciones pedidos ({{ requestedVacationItems().length }})</h3>
+            <h3>Mis días de vacaciones pedidos ({{ state.requestedVacationItems().length }})</h3>
           </div>
         </header>
 
@@ -520,34 +520,34 @@
           <button
             type="button"
             class="filter-pill"
-            [class.active]="requestedFilter() === 'todos'"
-            (click)="requestedFilter.set('todos')"
+            [class.active]="state.requestedFilter() === 'todos'"
+            (click)="state.setRequestedFilter('todos')"
           >
-            Todos ({{ requestedVacationItems().length }})
+            Todos ({{ state.requestedVacationItems().length }})
           </button>
           <button
             type="button"
             class="filter-pill"
-            [class.active]="requestedFilter() === 'proximos'"
-            (click)="requestedFilter.set('proximos')"
+            [class.active]="state.requestedFilter() === 'proximos'"
+            (click)="state.setRequestedFilter('proximos')"
           >
-            Modificables ({{ upcomingRequestedCount() }})
+            Modificables ({{ state.upcomingRequestedCount() }})
           </button>
           <button
             type="button"
             class="filter-pill"
-            [class.active]="requestedFilter() === 'pasados'"
-            (click)="requestedFilter.set('pasados')"
+            [class.active]="state.requestedFilter() === 'pasados'"
+            (click)="state.setRequestedFilter('pasados')"
           >
-            Pasados ({{ pastRequestedCount() }})
+            Pasados ({{ state.pastRequestedCount() }})
           </button>
         </div>
 
-        @if (loading() && requestedVacationItems().length === 0) {
+        @if (state.loading() && state.requestedVacationItems().length === 0) {
           <div class="empty-box">
             <p class="empty-title">Cargando tus días de vacaciones…</p>
           </div>
-        } @else if (filteredRequestedItems().length === 0) {
+        } @else if (state.filteredRequestedItems().length === 0) {
           <div class="empty-box">
             <p class="empty-title">No hay días de vacaciones en esta vista</p>
             <p class="empty-hint">
@@ -556,11 +556,11 @@
           </div>
         } @else {
           <ul class="requested-days-list">
-            @for (item of filteredRequestedItems(); track item.fecha) {
+            @for (item of state.filteredRequestedItems(); track item.fecha) {
               <li
                 class="requested-day-card"
                 [class.is-past]="item.isPast"
-                [class.is-editing]="editingVacation()?.fecha === item.fecha"
+                [class.is-editing]="state.editingVacation()?.fecha === item.fecha"
               >
                 <div class="requested-day-top">
                   <div class="requested-day-main">
@@ -583,27 +583,27 @@
                       <button
                         type="button"
                         class="btn-modify-item"
-                        [class.active]="editingVacation()?.fecha === item.fecha"
-                        [disabled]="modifyingLoading() || deletingId() === item.id"
-                        (click)="startEditVacation(item)"
+                        [class.active]="state.editingVacation()?.fecha === item.fecha"
+                        [disabled]="state.modifyingLoading() || state.deletingId() === item.id"
+                        (click)="handleStartEditVacation(item)"
                       >
                         Modificar
                       </button>
                       <button
                         type="button"
                         class="btn-delete-item"
-                        [disabled]="modifyingLoading() || deletingId() === item.id"
-                        (click)="deleteRequestedVacation(item)"
+                        [disabled]="state.modifyingLoading() || state.deletingId() === item.id"
+                        (click)="handleDeleteVacation(item)"
                         title="Cancelar este día de vacaciones"
                       >
-                        {{ deletingId() === item.id ? '…' : 'Quitar' }}
+                        {{ state.deletingId() === item.id ? '…' : 'Quitar' }}
                       </button>
                     </div>
                   }
                 </div>
 
                 <!-- Editor inline cuando este día está en modo modificación -->
-                @if (editingVacation()?.fecha === item.fecha) {
+                @if (state.editingVacation()?.fecha === item.fecha) {
                   <div class="inline-edit-box">
                     <label class="inline-edit-label">
                       Nueva fecha (o pulsa en un día libre del calendario superior):
@@ -612,27 +612,27 @@
                       <input
                         type="date"
                         class="inline-date-input"
-                        [min]="todayKey()"
-                        [ngModel]="editingNewDate()"
-                        (ngModelChange)="editingNewDate.set($event)"
+                        [min]="state.todayKey()"
+                        [ngModel]="state.editingNewDate()"
+                        (ngModelChange)="state.setEditingNewDate($event)"
                       />
                       <button
                         type="button"
                         class="btn-inline-save"
                         [disabled]="
-                          modifyingLoading() ||
-                          !editingNewDate() ||
-                          editingNewDate() === item.fecha
+                          state.modifyingLoading() ||
+                          !state.editingNewDate() ||
+                          state.editingNewDate() === item.fecha
                         "
-                        (click)="saveModifiedVacation()"
+                        (click)="handleSaveModifiedVacation()"
                       >
-                        {{ modifyingLoading() ? 'Guardando…' : 'Guardar' }}
+                        {{ state.modifyingLoading() ? 'Guardando…' : 'Guardar' }}
                       </button>
                       <button
                         type="button"
                         class="btn-inline-cancel"
-                        [disabled]="modifyingLoading()"
-                        (click)="cancelEditVacation()"
+                        [disabled]="state.modifyingLoading()"
+                        (click)="state.cancelEditVacation()"
                       >
                         Cancelar
                       </button>

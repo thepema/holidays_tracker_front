@@ -14,6 +14,9 @@
           · <strong>{{ monthVacationDaysCount() }}</strong>
           {{ monthVacationDaysCount() === 1 ? 'día con ausencias' : 'días con ausencias' }} este mes
         }
+        @if (loading()) {
+          · <span class="calendar-loading-inline">Cargando mes…</span>
+        }
       </p>
     </div>
 
@@ -44,7 +47,7 @@
     </div>
   </header>
 
-  <div class="calendar-wrapper">
+  <div class="calendar-wrapper" [class.is-loading]="loading()">
     <div class="calendar-grid">
       @for (dayName of weekDays; track dayName.full) {
         <div class="weekday-header">
@@ -209,9 +212,9 @@
                     <span class="detail-user-code">{{ user.codigo }}</span>
                   }
                 </div>
-                @if (userTeams(user.usuarioId).length > 0) {
+                @if (user.equipos.length > 0) {
                   <div class="detail-user-teams">
-                    @for (team of userTeams(user.usuarioId); track team.id) {
+                    @for (team of user.equipos; track team.id) {
                       <span class="detail-team-pill">{{ team.nombre }}</span>
                     }
                   </div>
@@ -260,11 +263,17 @@
       </div>
     } @else {
       <span class="legend-empty">
-        {{
-          selectedTeamName()
-            ? 'No hay vacaciones registradas para el equipo «' + selectedTeamName() + '» en este mes.'
-            : 'No hay vacaciones registradas en este mes.'
-        }}
+        @if (loading()) {
+          Cargando vacaciones de {{ monthTitle() }}…
+        } @else if (selectedTeamName() && selectedOfficeName()) {
+          No hay vacaciones registradas para el equipo «{{ selectedTeamName() }}» en la oficina «{{ selectedOfficeName() }}» en este mes.
+        } @else if (selectedTeamName()) {
+          No hay vacaciones registradas para el equipo «{{ selectedTeamName() }}» en este mes.
+        } @else if (selectedOfficeName()) {
+          No hay vacaciones registradas para la oficina «{{ selectedOfficeName() }}» en este mes.
+        } @else {
+          No hay vacaciones registradas en este mes.
+        }
       </span>
     }
     <div class="legend-right-meta">

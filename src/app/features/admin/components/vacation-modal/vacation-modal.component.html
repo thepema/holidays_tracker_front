@@ -76,7 +76,9 @@
       <span>Días de vacaciones registrados ({{ sortedUserVacations().length }})</span>
     </div>
 
-    @if (sortedUserVacations().length === 0) {
+    @if (loading()) {
+      <p class="existing-empty">Cargando días de vacaciones del usuario…</p>
+    } @else if (sortedUserVacations().length === 0) {
       <p class="existing-empty">Este usuario todavía no tiene días de vacaciones registrados.</p>
     } @else {
       <ul class="existing-vacations-list">

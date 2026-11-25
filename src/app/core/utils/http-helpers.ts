@@ -2,24 +2,6 @@ export function asRecord(value: unknown): Record<string, unknown> {
   return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : {};
 }
 
-export function extractArray(value: unknown, keys: string[]): unknown[] {
-  if (Array.isArray(value)) {
-    return value;
-  }
-  const record = asRecord(value);
-  for (const key of keys) {
-    if (Array.isArray(record[key])) {
-      return record[key] as unknown[];
-    }
-  }
-  for (const val of Object.values(record)) {
-    if (Array.isArray(val)) {
-      return val as unknown[];
-    }
-  }
-  return [];
-}
-
 export function extractErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'object' && error !== null && 'error' in error) {
     const body = (error as { error?: unknown }).error;

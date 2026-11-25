@@ -11,24 +11,16 @@ import {
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import {
-  OfficeHoliday,
-  getVacationTypeLabel,
-  normalizeHoliday,
-} from '../../../../core/models/user.model';
-import {
-  VacationDay,
-  computeInitials,
-  formatDateKey,
-  normalizeDateKey,
-  normalizeVacationEntry,
-} from '../../../../core/models/vacation.model';
-import { ApiService } from '../../../../core/services/api.service';
+import { formatDateKey } from '../../../../core/models/vacation.model';
 import { NotificationService } from '../../../../core/services/notification.service';
-import { UserSessionService } from '../../../../core/services/user-session.service';
-import { extractArray, extractErrorMessage } from '../../../../core/utils/http-helpers';
+import {
+  RequestedVacationItem,
+  UserStateService,
+} from '../../../../core/services/user-state.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
 import { UserSessionFooterComponent } from '../../components/user-session-footer/user-session-footer.component';
+
+export type { RequestedVacationItem };
 
 export interface UserCalendarDayCell {
   date: Date | null;
@@ -61,19 +53,6 @@ export interface CarouselMonthSheet {
   cells: UserCalendarDayCell[];
 }
 
-export interface RequestedVacationItem {
-  id?: number;
-  fecha: string;
-  formattedDate: string;
-  weekdayName: string;
-  year: number;
-  isPast: boolean;
-  isToday: boolean;
-  canModify: boolean;
-}
-
-type RequestedFilter = 'todos' | 'proximos' | 'pasados';
-
 @Component({
   selector: 'app-user-dashboard',
   standalone: true,
@@ -85,8 +64,7 @@ type RequestedFilter = 'todos' | 'proximos' | 'pasados';
 export class UserDashboardComponent implements OnInit, OnDestroy {
   private static readonly DRAG_HOLD_DELAY_MS = 500;
 
-  private readonly api = inject(ApiService);
-  protected readonly userSession = inject(UserSessionService);
+  protected readonly state = inject(UserStateService);
   protected readonly notifications = inject(NotificationService);
 
   readonly sessionExpired = output<void>();
@@ -101,19 +79,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     { full: 'Dom', short: 'D' },
   ] as const;
 
-  readonly loading = signal<boolean>(false);
-  readonly savingVacations = signal<boolean>(false);
-
-  /** Lista de vacaciones ya pedidas y guardadas en el servidor */
-  readonly requestedVacations = signal<VacationDay[]>([]);
-
-  /** Lista de festivos de la oficina del usuario */
-  readonly officeHolidays = signal<OfficeHoliday[]>([]);
-  readonly userOfficeName = signal<string | null>(null);
-
-  /** Conjunto de fechas (YYYY-MM-DD) seleccionadas en el calendario pendientes de enviar al servidor */
-  readonly selectedDatesSet = signal<ReadonlySet<string>>(new Set<string>());
-
   /** Índice activo de mes en el calendario */
   readonly activeCarouselIndex = signal<number>(0);
 
@@ -121,7 +86,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly visibleMonthsCount = signal<1 | 2>(1);
 
   /**
-   * Estado de arrastre por rango: solo se activa tras mantener pulsado medio segundo (500 ms)
+   * Estado visual de arrastre por rango: solo se activa tras mantener pulsado medio segundo (500 ms)
    */
   readonly isDragging = signal<boolean>(false);
   readonly dragStartKey = signal<string | null>(null);
@@ -130,60 +95,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private lastHoveredKey: string | null = null;
   private dragHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private dragMovedAcrossCells = false;
-
-  /** Estado de modificación de un día de vacaciones ya pedido (si aún no ha pasado la fecha) */
-  readonly editingVacation = signal<RequestedVacationItem | null>(null);
-  readonly editingNewDate = signal<string>('');
-  readonly modifyingLoading = signal<boolean>(false);
-  readonly deletingId = signal<number | null>(null);
-
-  /** Filtro de la lista de vacaciones pedidas */
-  readonly requestedFilter = signal<RequestedFilter>('todos');
-
-  readonly todayKey = computed<string>(() => formatDateKey(new Date()));
-
-  readonly userProfile = computed(() => this.userSession.currentUser());
-
-  readonly userFullName = computed<string>(() => {
-    const u = this.userProfile();
-    if (!u) return 'Usuario';
-    return `${u.nombre} ${u.apellidos}`.trim() || u.nombre;
-  });
-
-  readonly userInitials = computed<string>(() => {
-    const u = this.userProfile();
-    if (!u) return 'US';
-    return computeInitials(u.nombre, u.apellidos);
-  });
-
-  readonly userVacationTypeLabel = computed<string>(() => {
-    const u = this.userProfile();
-    if (!u?.tipo_vacaciones) return '';
-    return getVacationTypeLabel(u.tipo_vacaciones);
-  });
-
-  /**
-   * Mapa de fecha (YYYY-MM-DD) -> VacationDay ya pedido en servidor
-   */
-  readonly requestedByDateMap = computed<ReadonlyMap<string, VacationDay>>(() => {
-    const map = new Map<string, VacationDay>();
-    for (const v of this.requestedVacations()) {
-      if (v.fecha) {
-        map.set(v.fecha, v);
-      }
-    }
-    return map;
-  });
-
-  readonly holidayByDateMap = computed<ReadonlyMap<string, OfficeHoliday>>(() => {
-    const map = new Map<string, OfficeHoliday>();
-    for (const h of this.officeHolidays()) {
-      if (h.fecha) {
-        map.set(h.fecha, h);
-      }
-    }
-    return map;
-  });
 
   /**
    * Fechas en previsualización mientras se mantiene presionado el click (tras 0.5 s) y se arrastra hacia delante
@@ -200,13 +111,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
 
     const effectiveEnd = current >= start ? current : start;
-    const range = this.computeWeekdaysForward(
-      start,
-      effectiveEnd,
-      this.todayKey(),
-      this.requestedByDateMap(),
-      this.holidayByDateMap()
-    );
+    const range = this.state.computeWeekdaysForward(start, effectiveEnd);
     return new Set<string>(range);
   });
 
@@ -219,13 +124,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     const now = new Date();
     const currentYear = now.getFullYear();
     const currentMonth = now.getMonth(); // 0 = Enero ... 10 = Noviembre, 11 = Diciembre
-    const today = this.todayKey();
-    const requestedMap = this.requestedByDateMap();
-    const holidayMap = this.holidayByDateMap();
-    const selectedSet = this.selectedDatesSet();
+    const today = this.state.todayKey();
+    const requestedMap = this.state.requestedByDateMap();
+    const holidayMap = this.state.holidayByDateMap();
+    const selectedSet = this.state.selectedDatesSet();
     const previewSet = this.dragPreviewDatesSet();
-    const editingItem = this.editingVacation();
-    const editingTarget = this.editingNewDate();
+    const editingItem = this.state.editingVacation();
+    const editingTarget = this.state.editingNewDate();
 
     const monthSpecs: Array<{ year: number; month: number }> = [];
 
@@ -373,7 +278,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   readonly pendingSelectedList = computed<
     Array<{ dateKey: string; formattedDate: string; weekday: string; monthIndex: number | null }>
   >(() => {
-    const dates = [...this.selectedDatesSet()].sort();
+    const dates = [...this.state.selectedDatesSet()].sort();
     const months = this.carouselMonths();
     return dates.map((dateKey) => {
       const [y, m, d] = dateKey.split('-').map(Number);
@@ -395,140 +300,34 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     });
   });
 
-  /**
-   * Lista procesada de días de vacaciones ya pedidos por el usuario
-   */
-  readonly requestedVacationItems = computed<RequestedVacationItem[]>(() => {
-    const today = this.todayKey();
-    const raw = this.requestedVacations();
-
-    const uniqueByDate = new Map<string, VacationDay>();
-    for (const item of raw) {
-      if (item.fecha && !uniqueByDate.has(item.fecha)) {
-        uniqueByDate.set(item.fecha, item);
-      }
-    }
-
-    const sorted = [...uniqueByDate.values()].sort((a, b) => a.fecha.localeCompare(b.fecha));
-
-    return sorted.map((v) => {
-      const [y, m, d] = v.fecha.split('-').map(Number);
-      const dateObj = new Date(y, m - 1, d);
-      const weekdayName = new Intl.DateTimeFormat('es-ES', { weekday: 'long' }).format(dateObj);
-      const formattedDate = new Intl.DateTimeFormat('es-ES', {
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
-      }).format(dateObj);
-      const isPast = v.fecha < today;
-      const isToday = v.fecha === today;
-      return {
-        id: v.id,
-        fecha: v.fecha,
-        formattedDate,
-        weekdayName,
-        year: v.anio ?? y,
-        isPast,
-        isToday,
-        canModify: !isPast,
-      };
-    });
-  });
-
-  readonly filteredRequestedItems = computed<RequestedVacationItem[]>(() => {
-    const all = this.requestedVacationItems();
-    const filter = this.requestedFilter();
-    if (filter === 'proximos') {
-      return all.filter((item) => !item.isPast);
-    }
-    if (filter === 'pasados') {
-      return all.filter((item) => item.isPast);
-    }
-    return all;
-  });
-
-  readonly upcomingRequestedCount = computed<number>(
-    () => this.requestedVacationItems().filter((i) => !i.isPast).length
-  );
-
-  readonly pastRequestedCount = computed<number>(
-    () => this.requestedVacationItems().filter((i) => i.isPast).length
-  );
-
   ngOnInit(): void {
-    this.loadUserSessionAndVacations();
+    this.state.loadDashboard(() => this.sessionExpired.emit());
   }
 
   ngOnDestroy(): void {
     this.clearDragHoldTimer();
   }
 
-  loadUserSessionAndVacations(): void {
-    this.loading.set(true);
-
-    this.api.getCurrentSession().subscribe({
-      next: (res) => {
-        if (res?.usuario) {
-          this.userSession.setProfile(res.usuario);
-        }
-        this.fetchVacations();
-      },
-      error: (err: unknown) => {
-        const status = (err as { status?: number })?.status;
-        if (status === 401) {
-          this.loading.set(false);
-          this.userSession.clearSession();
-          this.sessionExpired.emit();
-          return;
-        }
-        this.fetchVacations();
-      },
-    });
+  protected handleRefresh(): void {
+    this.state.refreshVacations(() => this.sessionExpired.emit());
   }
 
-  fetchVacations(): void {
-    this.loading.set(true);
-    this.fetchHolidays();
-    this.api.getUserVacations().subscribe({
-      next: (rawResponse: unknown) => {
-        const rawList = extractArray(rawResponse, ['vacaciones', 'data', 'items', 'fechas']);
-        const parsed = rawList.flatMap((entry) => normalizeVacationEntry(entry));
-        this.requestedVacations.set(parsed);
-        this.loading.set(false);
-      },
-      error: (err: unknown) => {
-        this.loading.set(false);
-        const status = (err as { status?: number })?.status;
-        if (status === 401) {
-          this.userSession.clearSession();
-          this.sessionExpired.emit();
-          return;
-        }
-        this.notifications.showError(
-          extractErrorMessage(err, 'No se pudieron cargar tus días de vacaciones.')
-        );
-      },
-    });
+  protected handleSubmitVacations(): void {
+    this.state.submitSelectedVacations(() => this.sessionExpired.emit());
   }
 
-  fetchHolidays(): void {
-    this.api.getUserHolidays().subscribe({
-      next: (rawResponse: unknown) => {
-        if (typeof rawResponse === 'object' && rawResponse !== null) {
-          const rec = rawResponse as Record<string, unknown>;
-          const officeName = String(rec['oficinaNombre'] ?? '').trim();
-          this.userOfficeName.set(officeName || null);
-        }
-        const rawList = extractArray(rawResponse, ['festivos', 'holidays', 'data', 'items']);
-        const parsed = rawList
-          .map((entry) => normalizeHoliday(entry))
-          .filter((h): h is OfficeHoliday => h !== null);
-        this.officeHolidays.set(parsed);
-      },
-      error: () => {
-        // Ignorar si el usuario no tiene oficina asignada
-      },
-    });
+  protected handleStartEditVacation(item: RequestedVacationItem): void {
+    if (this.state.startEditVacation(item)) {
+      this.goToDateMonth(item.fecha);
+    }
+  }
+
+  protected handleSaveModifiedVacation(): void {
+    this.state.saveModifiedVacation(() => this.sessionExpired.emit());
+  }
+
+  protected handleDeleteVacation(item: RequestedVacationItem): void {
+    this.state.deleteRequestedVacation(item, () => this.sessionExpired.emit());
   }
 
   // ============================================================================
@@ -606,14 +405,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   clearMonthSelection(monthKey: string, event?: MouseEvent): void {
     event?.stopPropagation();
-    const prefix = `${monthKey}-`;
-    const nextSet = new Set<string>();
-    for (const d of this.selectedDatesSet()) {
-      if (!d.startsWith(prefix)) {
-        nextSet.add(d);
-      }
-    }
-    this.selectedDatesSet.set(nextSet);
+    this.state.clearMonthSelection(monthKey);
   }
 
   @HostListener('window:keydown', ['$event'])
@@ -638,13 +430,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     } else if (event.key === 'Home') {
       event.preventDefault();
       this.goToCurrentMonth();
-    } else if (event.key === 'Escape' && this.editingVacation()) {
-      this.cancelEditVacation();
+    } else if (event.key === 'Escape' && this.state.editingVacation()) {
+      this.state.cancelEditVacation();
     }
   }
 
   // ============================================================================
-  // Selección de días:
+  // Interacción puntero / arrastre de días en el calendario:
   // - Pulsación rápida (< 500 ms): alterna el día (si ya está seleccionado, lo elimina)
   // - Mantener pulsado >= 500 ms: activa el modo arrastre hacia delante sin fines de semana
   // ============================================================================
@@ -654,32 +446,16 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
-    // Si el usuario hace click sobre una pantalla lateral en vista previa, enfocamos ese mes
     if (!this.isSlideActive(sheetIndex)) {
       event.preventDefault();
       this.goToCarouselMonth(sheetIndex);
       return;
     }
 
-    // Si estamos en modo "Modificar fecha de un día ya pedido", un click en un día hábil futuro libre lo asigna como nueva fecha
-    if (this.editingVacation()) {
-      if (cell.isPast || cell.isWeekend) {
-        return;
+    if (this.state.editingVacation()) {
+      if (this.state.selectEditingTargetFromCalendar(cell)) {
+        event.preventDefault();
       }
-      if (cell.isHoliday) {
-        this.notifications.showError(
-          `No puedes mover las vacaciones a un día festivo (${cell.holidayName || 'Festivo'}).`
-        );
-        return;
-      }
-      if (cell.isRequested && cell.dateKey !== this.editingVacation()?.fecha) {
-        this.notifications.showError(
-          'No puedes mover las vacaciones a un día que ya tienes pedido.'
-        );
-        return;
-      }
-      event.preventDefault();
-      this.editingNewDate.set(cell.dateKey);
       return;
     }
 
@@ -688,9 +464,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
 
     if (cell.isRequested) {
-      this.notifications.showError(
-        'Ese día ya está pedido como vacaciones. No se puede solicitar dos veces el mismo día.'
-      );
+      this.state.notifyAlreadyRequestedCell();
       return;
     }
 
@@ -702,7 +476,6 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     this.lastHoveredKey = startDateKey;
     this.dragMovedAcrossCells = false;
 
-    // Esperar medio segundo (500 ms) antes de activar el modo arrastre
     this.dragHoldTimer = setTimeout(() => {
       this.dragHoldTimer = null;
       if (!this.pointerDownKey) {
@@ -760,9 +533,8 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
 
     if (!wasDragging) {
-      // Se soltó antes de medio segundo: pulsación individual (añade o elimina si ya estaba seleccionado)
       if (pressedKey) {
-        this.toggleSingleDaySelection(pressedKey);
+        this.state.toggleSingleDaySelection(pressedKey);
       }
       return;
     }
@@ -782,23 +554,9 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     }
 
     if (wasRangeDrag && currentKey) {
-      const weekdays = this.computeWeekdaysForward(
-        startKey,
-        currentKey,
-        this.todayKey(),
-        this.requestedByDateMap(),
-        this.holidayByDateMap()
-      );
-      if (weekdays.length > 0) {
-        const nextSet = new Set(this.selectedDatesSet());
-        for (const dayKey of weekdays) {
-          nextSet.add(dayKey);
-        }
-        this.selectedDatesSet.set(nextSet);
-      }
+      this.state.addRangeSelection(startKey, currentKey);
     } else {
-      // Si mantuvo pulsado en la misma casilla sin arrastrar a otra, alterna también esa casilla
-      this.toggleSingleDaySelection(startKey);
+      this.state.toggleSingleDaySelection(startKey);
     }
   }
 
@@ -807,225 +565,5 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
       clearTimeout(this.dragHoldTimer);
       this.dragHoldTimer = null;
     }
-  }
-
-  private toggleSingleDaySelection(dateKey: string): void {
-    if (dateKey < this.todayKey()) {
-      return;
-    }
-    if (this.holidayByDateMap().has(dateKey)) {
-      this.notifications.showError('No se pueden solicitar vacaciones en un día festivo de tu oficina.');
-      return;
-    }
-    if (this.requestedByDateMap().has(dateKey)) {
-      this.notifications.showError('No se puede pedir dos veces vacaciones en el mismo día.');
-      return;
-    }
-    const [y, m, d] = dateKey.split('-').map(Number);
-    const dow = new Date(y, m - 1, d).getDay();
-    if (dow === 0 || dow === 6) {
-      return;
-    }
-
-    const nextSet = new Set(this.selectedDatesSet());
-    if (nextSet.has(dateKey)) {
-      nextSet.delete(dateKey);
-    } else {
-      nextSet.add(dateKey);
-    }
-    this.selectedDatesSet.set(nextSet);
-  }
-
-  private computeWeekdaysForward(
-    startKey: string,
-    endKey: string,
-    todayKey: string,
-    requestedMap: ReadonlyMap<string, VacationDay>,
-    holidayMap: ReadonlyMap<string, OfficeHoliday>
-  ): string[] {
-    if (endKey < startKey) {
-      return [];
-    }
-    const result: string[] = [];
-    const [sy, sm, sd] = startKey.split('-').map(Number);
-    const [ey, em, ed] = endKey.split('-').map(Number);
-    const cursor = new Date(sy, sm - 1, sd);
-    const end = new Date(ey, em - 1, ed);
-
-    while (cursor <= end) {
-      const dow = cursor.getDay();
-      const key = formatDateKey(cursor);
-      const isWeekend = dow === 0 || dow === 6;
-      if (!isWeekend && key >= todayKey && !requestedMap.has(key) && !holidayMap.has(key)) {
-        result.push(key);
-      }
-      cursor.setDate(cursor.getDate() + 1);
-    }
-    return result;
-  }
-
-  removePendingDate(dateKey: string): void {
-    const nextSet = new Set(this.selectedDatesSet());
-    nextSet.delete(dateKey);
-    this.selectedDatesSet.set(nextSet);
-  }
-
-  clearPendingSelection(): void {
-    this.selectedDatesSet.set(new Set<string>());
-  }
-
-  /**
-   * Envía al servidor la lista de días seleccionados para guardarlos como vacaciones
-   */
-  submitSelectedVacations(): void {
-    const fechas = [...this.selectedDatesSet()].sort();
-    if (fechas.length === 0) {
-      return;
-    }
-
-    const requestedMap = this.requestedByDateMap();
-    const holidayMap = this.holidayByDateMap();
-    const validFechas = fechas.filter((f) => !requestedMap.has(f) && !holidayMap.has(f));
-    if (validFechas.length === 0) {
-      this.notifications.showError(
-        'Todos los días seleccionados ya estaban registrados como vacaciones.'
-      );
-      this.clearPendingSelection();
-      return;
-    }
-
-    this.savingVacations.set(true);
-    this.api.saveUserVacations(validFechas).subscribe({
-      next: () => {
-        this.savingVacations.set(false);
-        this.clearPendingSelection();
-        this.notifications.showNotice(
-          validFechas.length === 1
-            ? 'Se ha guardado 1 día de vacaciones correctamente.'
-            : `Se han guardado ${validFechas.length} días de vacaciones correctamente.`
-        );
-        this.fetchVacations();
-      },
-      error: (err: unknown) => {
-        this.savingVacations.set(false);
-        this.notifications.showError(
-          extractErrorMessage(err, 'No se pudieron guardar los días de vacaciones seleccionados.')
-        );
-      },
-    });
-  }
-
-  // ============================================================================
-  // Modificación y cancelación de días de vacaciones pedidos (si fecha >= hoy)
-  // ============================================================================
-
-  startEditVacation(item: RequestedVacationItem): void {
-    if (!item.canModify) {
-      return;
-    }
-    this.editingVacation.set(item);
-    this.editingNewDate.set(item.fecha);
-    this.goToDateMonth(item.fecha);
-  }
-
-  cancelEditVacation(): void {
-    this.editingVacation.set(null);
-    this.editingNewDate.set('');
-  }
-
-  saveModifiedVacation(): void {
-    const item = this.editingVacation();
-    if (!item || !item.canModify) {
-      return;
-    }
-
-    const newDate = normalizeDateKey(this.editingNewDate());
-    if (!newDate) {
-      this.notifications.showError('Selecciona una fecha válida en formato AAAA-MM-DD.');
-      return;
-    }
-
-    if (newDate === item.fecha) {
-      this.cancelEditVacation();
-      return;
-    }
-
-    if (newDate < this.todayKey()) {
-      this.notifications.showError(
-        'No puedes cambiar un día de vacaciones a una fecha que ya ha pasado.'
-      );
-      return;
-    }
-
-    const [y, m, d] = newDate.split('-').map(Number);
-    const dow = new Date(y, m - 1, d).getDay();
-    if (dow === 0 || dow === 6) {
-      this.notifications.showError(
-        'No se pueden asignar vacaciones en fin de semana (sábado o domingo).'
-      );
-      return;
-    }
-
-    const holidayConflict = this.holidayByDateMap().get(newDate);
-    if (holidayConflict) {
-      this.notifications.showError(
-        `No puedes mover las vacaciones al ${newDate} porque es día festivo en tu oficina (${holidayConflict.nombre}).`
-      );
-      return;
-    }
-
-    if (this.requestedByDateMap().has(newDate)) {
-      this.notifications.showError(
-        'Ya tienes vacaciones pedidas en esa fecha. No se puede pedir dos veces el mismo día.'
-      );
-      return;
-    }
-
-    if (!item.id) {
-      this.notifications.showError(
-        'Este registro no dispone de identificador para modificarse.'
-      );
-      return;
-    }
-
-    this.modifyingLoading.set(true);
-    this.api.updateUserVacationDate(item.id, newDate).subscribe({
-      next: () => {
-        this.modifyingLoading.set(false);
-        this.cancelEditVacation();
-        this.notifications.showNotice(`Día de vacaciones actualizado al ${newDate}.`);
-        this.fetchVacations();
-      },
-      error: (err: unknown) => {
-        this.modifyingLoading.set(false);
-        this.notifications.showError(
-          extractErrorMessage(err, 'No se pudo modificar el día de vacaciones.')
-        );
-      },
-    });
-  }
-
-  deleteRequestedVacation(item: RequestedVacationItem): void {
-    if (!item.canModify || !item.id) {
-      return;
-    }
-
-    this.deletingId.set(item.id);
-    this.api.deleteUserVacation(item.id).subscribe({
-      next: () => {
-        this.deletingId.set(null);
-        if (this.editingVacation()?.id === item.id) {
-          this.cancelEditVacation();
-        }
-        this.notifications.showNotice('Día de vacaciones cancelado y liberado del calendario.');
-        this.fetchVacations();
-      },
-      error: (err: unknown) => {
-        this.deletingId.set(null);
-        this.notifications.showError(
-          extractErrorMessage(err, 'No se pudo cancelar el día de vacaciones.')
-        );
-      },
-    });
   }
 }

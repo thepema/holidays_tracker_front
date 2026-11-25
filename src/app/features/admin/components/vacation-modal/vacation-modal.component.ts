@@ -23,6 +23,7 @@ export class VacationModalComponent {
   readonly user = input.required<AdminUser>();
   readonly userVacations = input<VacationDay[]>([]);
   readonly userHolidays = input<OfficeHoliday[]>([]);
+  readonly loading = input<boolean>(false);
   readonly saving = input<boolean>(false);
   readonly deletingVacationId = input<number | null>(null);
 

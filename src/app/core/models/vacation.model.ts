@@ -1,4 +1,4 @@
-import { OfficeHoliday } from './user.model';
+import { OfficeHoliday, UserTeamBadge } from './user.model';
 
 export interface UserColorPalette {
   bg: string;
@@ -17,6 +17,9 @@ export interface VacationDay {
   apellidos?: string;
   cargo?: string;
   email?: string;
+  oficinaId?: number | null;
+  oficinaNombre?: string | null;
+  equipos?: UserTeamBadge[];
 }
 
 export interface CalendarVacationUser {
@@ -29,6 +32,7 @@ export interface CalendarVacationUser {
   initials: string;
   cargo: string;
   email: string;
+  equipos: UserTeamBadge[];
   color: UserColorPalette;
 }
 
@@ -91,189 +95,6 @@ export function computeInitials(nombre: string, apellidos: string): string {
     return `${parts[0].charAt(0)}${parts[1].charAt(0)}`.toUpperCase();
   }
   return parts[0].slice(0, 2).toUpperCase();
-}
-
-function buildSyntheticUserId(key: string): number {
-  let hash = 0;
-  for (let i = 0; i < key.length; i++) {
-    hash = (hash * 31 + key.charCodeAt(i)) | 0;
-  }
-  return (Math.abs(hash) % 900000) + 100000;
-}
-
-export function normalizeDateKey(rawDate: unknown): string {
-  if (rawDate instanceof Date && !Number.isNaN(rawDate.getTime())) {
-    return formatDateKey(rawDate);
-  }
-  if (typeof rawDate !== 'string') {
-    return '';
-  }
-  const trimmed = rawDate.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    return trimmed;
-  }
-
-  const midnightMatch = /^(\d{4}-\d{2}-\d{2})[T\s]00:00:00(?:\.\d+)?Z?$/i.exec(trimmed);
-  if (midnightMatch) {
-    return midnightMatch[1];
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}T/.test(trimmed)) {
-    const parsed = new Date(trimmed);
-    if (!Number.isNaN(parsed.getTime())) {
-      const adjusted = new Date(parsed.getTime() + 3 * 60 * 60 * 1000);
-      const y = adjusted.getUTCFullYear();
-      const m = String(adjusted.getUTCMonth() + 1).padStart(2, '0');
-      const d = String(adjusted.getUTCDate()).padStart(2, '0');
-      return `${y}-${m}-${d}`;
-    }
-    return trimmed.slice(0, 10);
-  }
-
-  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
-    return trimmed.slice(0, 10);
-  }
-
-  const dmyMatch = /^(\d{2})[/-](\d{2})[/-](\d{4})$/.exec(trimmed);
-  if (dmyMatch) {
-    return `${dmyMatch[3]}-${dmyMatch[2]}-${dmyMatch[1]}`;
-  }
-
-  return '';
-}
-
-export function normalizeVacationEntry(value: unknown): VacationDay[] {
-  if (typeof value !== 'object' || value === null) {
-    return [];
-  }
-  const item = value as Record<string, unknown>;
-  const nestedUser =
-    typeof item['usuario'] === 'object' && item['usuario'] !== null
-      ? (item['usuario'] as Record<string, unknown>)
-      : typeof item['user'] === 'object' && item['user'] !== null
-        ? (item['user'] as Record<string, unknown>)
-        : {};
-
-  const codigo = String(
-    item['codigo'] ?? item['code'] ?? nestedUser['codigo'] ?? nestedUser['code'] ?? ''
-  ).trim();
-  const nombre = String(
-    item['nombre'] ?? item['name'] ?? nestedUser['nombre'] ?? nestedUser['name'] ?? ''
-  ).trim();
-  const apellidos = String(
-    item['apellidos'] ??
-      item['apellido'] ??
-      item['lastName'] ??
-      item['last_name'] ??
-      nestedUser['apellidos'] ??
-      nestedUser['apellido'] ??
-      ''
-  ).trim();
-  const cargo = String(
-    item['cargo'] ??
-      item['role'] ??
-      item['puesto'] ??
-      nestedUser['cargo'] ??
-      nestedUser['role'] ??
-      ''
-  ).trim();
-  const email = String(item['email'] ?? nestedUser['email'] ?? '').trim();
-
-  const rawUserId =
-    item['usuarioId'] ??
-    item['usuario_id'] ??
-    item['idUsuario'] ??
-    item['id_usuario'] ??
-    item['userId'] ??
-    item['user_id'] ??
-    nestedUser['id'] ??
-    nestedUser['usuarioId'] ??
-    nestedUser['usuario_id'];
-
-  let usuarioId = Number(rawUserId);
-  if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
-    const fallbackId = Number(item['id']);
-    if (
-      Array.isArray(item['fechas'] ?? item['dates'] ?? item['dias'] ?? item['vacaciones']) &&
-      Number.isFinite(fallbackId) &&
-      fallbackId > 0
-    ) {
-      usuarioId = fallbackId;
-    } else if (nombre || apellidos || email) {
-      usuarioId = buildSyntheticUserId(`${nombre}|${apellidos}|${email}`.toLowerCase());
-    } else if (Number.isFinite(fallbackId) && fallbackId > 0) {
-      usuarioId = fallbackId;
-    }
-  }
-
-  if (!Number.isFinite(usuarioId) || usuarioId <= 0) {
-    return [];
-  }
-
-  const rawId = Number(item['id']);
-  const id = Number.isFinite(rawId) && rawId > 0 ? rawId : undefined;
-  const rawAnio = Number(item['anio'] ?? item['year'] ?? item['año']);
-  const anio = Number.isFinite(rawAnio) && rawAnio > 1900 ? rawAnio : undefined;
-
-  const dateListRaw = item['fechas'] ?? item['dates'] ?? item['dias'] ?? item['vacaciones'];
-  if (Array.isArray(dateListRaw)) {
-    const results: VacationDay[] = [];
-    for (const entry of dateListRaw) {
-      const rawDateValue =
-        typeof entry === 'object' && entry !== null
-          ? ((entry as Record<string, unknown>)['fecha'] ??
-            (entry as Record<string, unknown>)['date'] ??
-            (entry as Record<string, unknown>)['dia'])
-          : entry;
-      const entryIdRaw =
-        typeof entry === 'object' && entry !== null
-          ? Number((entry as Record<string, unknown>)['id'])
-          : undefined;
-      const resolvedId =
-        entryIdRaw !== undefined && Number.isFinite(entryIdRaw) && entryIdRaw > 0
-          ? entryIdRaw
-          : id;
-      const fecha = normalizeDateKey(rawDateValue);
-      if (fecha) {
-        results.push({
-          id: resolvedId,
-          usuarioId,
-          fecha,
-          anio: anio ?? Number(fecha.slice(0, 4)),
-          ...(codigo ? { codigo } : {}),
-          ...(nombre ? { nombre } : {}),
-          ...(apellidos ? { apellidos } : {}),
-          ...(cargo ? { cargo } : {}),
-          ...(email ? { email } : {}),
-        });
-      }
-    }
-    return results;
-  }
-
-  const rawDate = item['fecha'] ?? item['date'] ?? item['dia'] ?? item['day'];
-  const fecha = normalizeDateKey(rawDate);
-  if (!fecha) {
-    return [];
-  }
-
-  return [
-    {
-      id,
-      usuarioId,
-      fecha,
-      anio: anio ?? Number(fecha.slice(0, 4)),
-      ...(codigo ? { codigo } : {}),
-      ...(nombre ? { nombre } : {}),
-      ...(apellidos ? { apellidos } : {}),
-      ...(cargo ? { cargo } : {}),
-      ...(email ? { email } : {}),
-    },
-  ];
 }
 
 export function formatDateKey(date: Date): string {
