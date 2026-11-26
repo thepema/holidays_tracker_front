@@ -54,6 +54,14 @@ export interface SessionActivationResponse {
   codigoRecuperacion: string;
 }
 
+/**
+ * Respuesta devuelta por `GET /api/sesiones/api-token` para configurar agentes de IA (MCP).
+ */
+export interface UserApiTokenResponse {
+  apiToken: string;
+  headerName: string;
+}
+
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http = inject(HttpClient);
@@ -626,6 +634,30 @@ export class ApiService {
       autenticado: boolean;
       usuario: SessionActivationResponse['usuario'];
     }>(`${this.baseUrl}/api/sesiones/me`, { withCredentials: true });
+  }
+
+  /**
+   * GET /api/sesiones/api-token
+   * Obtiene el API token personal (`token_hash` de la sesión activa) para autenticar agentes de IA en `/mcp`.
+   */
+  getUserApiToken(): Observable<UserApiTokenResponse> {
+    return this.http.get<UserApiTokenResponse>(`${this.baseUrl}/api/sesiones/api-token`, {
+      withCredentials: true,
+    });
+  }
+
+  /**
+   * Devuelve la URL pública del endpoint MCP para registrar el servicio en un agente de IA.
+   */
+  getMcpEndpointUrl(): string {
+    const configured = environment.apiUrl.replace(/\/$/, '');
+    if (configured) {
+      return `${configured}/mcp`;
+    }
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/mcp`;
+    }
+    return '/mcp';
   }
 
   /**

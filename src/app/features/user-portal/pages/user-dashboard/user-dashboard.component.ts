@@ -10,7 +10,6 @@ import {
   signal,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
 import { formatDateKey } from '../../../../core/models/vacation.model';
 import { NotificationService } from '../../../../core/services/notification.service';
 import {
@@ -18,6 +17,7 @@ import {
   UserStateService,
 } from '../../../../core/services/user-state.service';
 import { AlertBannerComponent } from '../../../../shared/components/alert-banner/alert-banner.component';
+import { ModalShellComponent } from '../../../../shared/components/modal-shell/modal-shell.component';
 import { UserSessionFooterComponent } from '../../components/user-session-footer/user-session-footer.component';
 
 export type { RequestedVacationItem };
@@ -56,7 +56,7 @@ export interface CarouselMonthSheet {
 @Component({
   selector: 'app-user-dashboard',
   standalone: true,
-  imports: [FormsModule, RouterLink, AlertBannerComponent, UserSessionFooterComponent],
+  imports: [FormsModule, AlertBannerComponent, ModalShellComponent, UserSessionFooterComponent],
   templateUrl: './user-dashboard.component.html',
   styleUrl: './user-dashboard.component.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -95,6 +95,29 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
   private lastHoveredKey: string | null = null;
   private dragHoldTimer: ReturnType<typeof setTimeout> | null = null;
   private dragMovedAcrossCells = false;
+
+  /** Estado del apartado de API Key / Agente IA (MCP) */
+  readonly mcpModalOpen = signal<boolean>(false);
+  readonly copiedField = signal<'token' | 'url' | 'config' | null>(null);
+  private copiedFieldTimer: ReturnType<typeof setTimeout> | null = null;
+
+  readonly mcpConfigPreview = computed<string>(() => {
+    const tokenDisplay = this.state.apiToken() || '<TU_API_TOKEN>';
+    return JSON.stringify(
+      {
+        mcpServers: {
+          'holidays-tracker': {
+            url: this.state.mcpEndpointUrl(),
+            headers: {
+              'x-api-key': tokenDisplay,
+            },
+          },
+        },
+      },
+      null,
+      2
+    );
+  });
 
   /**
    * Fechas en previsualización mientras se mantiene presionado el click (tras 0.5 s) y se arrastra hacia delante
@@ -306,6 +329,7 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearDragHoldTimer();
+    this.clearCopiedFieldTimer();
   }
 
   protected handleRefresh(): void {
@@ -328,6 +352,92 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   protected handleDeleteVacation(item: RequestedVacationItem): void {
     this.state.deleteRequestedVacation(item, () => this.sessionExpired.emit());
+  }
+
+  // ============================================================================
+  // Conexión MCP y API Key personal de usuario
+  // ============================================================================
+
+  protected openMcpModal(): void {
+    this.mcpModalOpen.set(true);
+  }
+
+  protected closeMcpModal(): void {
+    this.mcpModalOpen.set(false);
+  }
+
+  protected handleFetchApiToken(): void {
+    this.state.fetchApiToken(() => this.sessionExpired.emit());
+  }
+
+  protected copyApiToken(): void {
+    const token = this.state.apiToken();
+    if (!token) return;
+    void this.copyText(token, 'token', 'API Key copiada al portapapeles.');
+  }
+
+  protected copyMcpUrl(): void {
+    void this.copyText(
+      this.state.mcpEndpointUrl(),
+      'url',
+      'URL del servidor MCP copiada al portapapeles.'
+    );
+  }
+
+  protected copyMcpConfig(): void {
+    const token = this.state.apiToken();
+    if (!token) return;
+    const configJson = JSON.stringify(
+      {
+        mcpServers: {
+          'holidays-tracker': {
+            url: this.state.mcpEndpointUrl(),
+            headers: {
+              'x-api-key': token,
+            },
+          },
+        },
+      },
+      null,
+      2
+    );
+    void this.copyText(
+      configJson,
+      'config',
+      'Configuración JSON para el agente de IA copiada al portapapeles.'
+    );
+  }
+
+  private async copyText(
+    text: string,
+    field: 'token' | 'url' | 'config',
+    noticeMessage: string
+  ): Promise<void> {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
+      this.notifications.showError(
+        'Tu navegador no permite copiar automáticamente al portapapeles.'
+      );
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(text);
+      this.copiedField.set(field);
+      this.clearCopiedFieldTimer();
+      this.copiedFieldTimer = setTimeout(() => {
+        this.copiedFieldTimer = null;
+        this.copiedField.set(null);
+      }, 2000);
+      this.notifications.showNotice(noticeMessage);
+    } catch {
+      this.notifications.showError('No se pudo copiar al portapapeles.');
+    }
+  }
+
+  private clearCopiedFieldTimer(): void {
+    if (this.copiedFieldTimer !== null) {
+      clearTimeout(this.copiedFieldTimer);
+      this.copiedFieldTimer = null;
+    }
   }
 
   // ============================================================================
@@ -410,6 +520,10 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    if (this.mcpModalOpen()) {
+      return;
+    }
+
     const target = event.target as HTMLElement | null;
     if (
       target &&

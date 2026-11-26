@@ -23,14 +23,14 @@
           </div>
         }
 
-        <a
-          routerLink="/guia-acceso"
-          class="btn-guide-topbar"
-          title="Guía sobre cómo funciona tu sesión y acceso"
+        <button
+          type="button"
+          class="btn-mcp-topbar"
+          (click)="openMcpModal()"
+          title="Obtener API Key y registrar el servidor MCP en tu agente de IA"
         >
-          <span aria-hidden="true">?</span>
-          <span>Guía de acceso</span>
-        </a>
+          <span>Agente IA · MCP</span>
+        </button>
 
         <button
           type="button"
@@ -648,4 +648,105 @@
   </main>
 
   <app-user-session-footer />
+
+  @if (mcpModalOpen()) {
+    <div class="mcp-modal-host">
+      <app-modal-shell
+        eyebrow="AGENTE DE IA · CONEXIÓN MCP"
+        title="Conecta tu Agente de IA"
+        subtitle="Obtén tu API Token personal (hash de sesión) y úsalo en la cabecera x-api-key para que tu asistente de IA gestione únicamente tus propias vacaciones."
+        (closeModal)="closeMcpModal()"
+      >
+        <div class="mcp-modal-body">
+          <div class="mcp-modal-toolbar">
+            <span class="mcp-badge">API Key personal</span>
+            <button
+              type="button"
+              class="btn-fetch-api-token"
+              [disabled]="state.loadingApiToken()"
+              (click)="handleFetchApiToken()"
+            >
+              {{
+                state.loadingApiToken()
+                  ? 'Obteniendo API Token…'
+                  : state.apiToken()
+                    ? 'Actualizar API Token'
+                    : 'Obtener API Token'
+              }}
+            </button>
+          </div>
+
+          @if (!state.apiToken()) {
+            <div class="empty-box mcp-empty-box">
+              <p class="empty-title">API Token no revelado todavía</p>
+              <p class="empty-hint">
+                Pulsa <strong>«Obtener API Token»</strong> para recuperar tu clave personal vinculada a tu sesión activa y generar la configuración lista para registrar en tu agente de IA (Claude Desktop, Cursor, Antigravity, VS Code, etc.).
+              </p>
+            </div>
+          } @else {
+            <div class="mcp-credentials-grid">
+              <div class="mcp-credential-box">
+                <div class="mcp-box-top">
+                  <span class="mcp-box-label">Tu API Key (cabecera <code>x-api-key</code>)</span>
+                  <div class="mcp-box-actions">
+                    <button
+                      type="button"
+                      class="btn-mcp-primary"
+                      [class.copied]="copiedField() === 'token'"
+                      (click)="copyApiToken()"
+                    >
+                      {{ copiedField() === 'token' ? '¡Copiada!' : 'Copiar API Key' }}
+                    </button>
+                  </div>
+                </div>
+                <code class="mcp-code-line">{{ state.apiToken() }}</code>
+              </div>
+
+              <div class="mcp-credential-box">
+                <div class="mcp-box-top">
+                  <span class="mcp-box-label">Endpoint del servidor MCP (Streamable HTTP)</span>
+                  <div class="mcp-box-actions">
+                    <button
+                      type="button"
+                      class="btn-mcp-primary"
+                      [class.copied]="copiedField() === 'url'"
+                      (click)="copyMcpUrl()"
+                    >
+                      {{ copiedField() === 'url' ? '¡Copiada!' : 'Copiar URL' }}
+                    </button>
+                  </div>
+                </div>
+                <code class="mcp-code-line">{{ state.mcpEndpointUrl() }}</code>
+              </div>
+            </div>
+
+            <div class="mcp-config-block">
+              <div class="mcp-box-top">
+                <span class="mcp-box-label">Configuración JSON lista para registrar el servidor MCP</span>
+                <button
+                  type="button"
+                  class="btn-mcp-primary"
+                  [class.copied]="copiedField() === 'config'"
+                  (click)="copyMcpConfig()"
+                >
+                  {{ copiedField() === 'config' ? '¡Configuración copiada!' : 'Copiar configuración JSON' }}
+                </button>
+              </div>
+              <pre class="mcp-json-pre"><code>{{ mcpConfigPreview() }}</code></pre>
+            </div>
+
+            <div class="mcp-security-note" role="note">
+              <strong>Importante:</strong> este endpoint no admite autenticación <code>Bearer</code>; el agente debe enviar la clave en la cabecera <code>x-api-key</code>. Si cierras, reseteas o recuperas tu sesión en otro navegador, el hash de sesión cambiará y deberás actualizar la clave en tu agente.
+            </div>
+          }
+
+          <div class="mcp-modal-footer">
+            <button type="button" class="btn-mcp-close" (click)="closeMcpModal()">
+              Cerrar
+            </button>
+          </div>
+        </div>
+      </app-modal-shell>
+    </div>
+  }
 </div>

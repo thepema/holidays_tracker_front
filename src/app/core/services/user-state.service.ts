@@ -48,8 +48,11 @@ export class UserStateService {
   readonly savingVacations = signal<boolean>(false);
   readonly modifyingLoading = signal<boolean>(false);
   readonly deletingId = signal<number | null>(null);
+  readonly apiToken = signal<string | null>(null);
+  readonly loadingApiToken = signal<boolean>(false);
 
   // Estado derivado de sesión y perfil
+  readonly mcpEndpointUrl = computed<string>(() => this.api.getMcpEndpointUrl());
   readonly todayKey = computed<string>(() => formatDateKey(new Date()));
   readonly isAuthenticated = computed<boolean>(() => this.userSession.isAuthenticated());
   readonly userProfile = computed(() => this.userSession.currentUser());
@@ -169,6 +172,8 @@ export class UserStateService {
     this.savingVacations.set(false);
     this.modifyingLoading.set(false);
     this.deletingId.set(null);
+    this.apiToken.set(null);
+    this.loadingApiToken.set(false);
     this.notifications.clearAll();
   }
 
@@ -595,6 +600,30 @@ export class UserStateService {
         }
         this.notifications.showError(
           extractErrorMessage(err, 'No se pudo cancelar el día de vacaciones.')
+        );
+      },
+    });
+  }
+
+  fetchApiToken(onSessionExpired?: () => void): void {
+    if (this.loadingApiToken()) {
+      return;
+    }
+
+    this.loadingApiToken.set(true);
+    this.api.getUserApiToken().subscribe({
+      next: (res) => {
+        this.loadingApiToken.set(false);
+        this.apiToken.set(res.apiToken);
+      },
+      error: (err: unknown) => {
+        this.loadingApiToken.set(false);
+        if (this.isUnauthorizedError(err)) {
+          this.handleUnauthorized(onSessionExpired);
+          return;
+        }
+        this.notifications.showError(
+          extractErrorMessage(err, 'No se pudo obtener tu API token.')
         );
       },
     });
