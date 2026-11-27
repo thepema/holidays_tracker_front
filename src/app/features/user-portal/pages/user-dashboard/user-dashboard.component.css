@@ -1733,7 +1733,7 @@
 }
 
 .mcp-credential-box,
-.mcp-config-block {
+.mcp-prompt-block {
   padding: 13px 15px;
   border-radius: 12px;
   background: var(--bg-input);
@@ -1808,7 +1808,14 @@
   white-space: nowrap;
 }
 
-.mcp-json-pre {
+.mcp-prompt-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--text-secondary);
+}
+
+.mcp-prompt-pre {
   margin: 0;
   padding: 12px 14px;
   border-radius: 9px;
@@ -1817,7 +1824,8 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 1.5;
-  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .mcp-security-note {

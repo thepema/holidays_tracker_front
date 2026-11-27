@@ -654,12 +654,12 @@
       <app-modal-shell
         eyebrow="AGENTE DE IA · CONEXIÓN MCP"
         title="Conecta tu Agente de IA"
-        subtitle="Obtén tu API Token personal (hash de sesión) y úsalo en la cabecera x-api-key para que tu asistente de IA gestione únicamente tus propias vacaciones."
+        subtitle="Obtén tu API Token personal para autenticar tu asistente de IA mediante OAuth 2.1 (pegando la URL del servidor) o lanzando un prompt en el agente para crear el plugin y conectar el MCP."
         (closeModal)="closeMcpModal()"
       >
         <div class="mcp-modal-body">
           <div class="mcp-modal-toolbar">
-            <span class="mcp-badge">API Key personal</span>
+            <span class="mcp-badge">OAuth 2.1 · API Key</span>
             <button
               type="button"
               class="btn-fetch-api-token"
@@ -680,14 +680,14 @@
             <div class="empty-box mcp-empty-box">
               <p class="empty-title">API Token no revelado todavía</p>
               <p class="empty-hint">
-                Pulsa <strong>«Obtener API Token»</strong> para recuperar tu clave personal vinculada a tu sesión activa y generar la configuración lista para registrar en tu agente de IA (Claude Desktop, Cursor, Antigravity, VS Code, etc.).
+                Pulsa <strong>«Obtener API Token»</strong> para ver la URL del servidor MCP, tu clave personal y el prompt listo para lanzar en tu agente de IA y crear el plugin con la conexión MCP.
               </p>
             </div>
           } @else {
             <div class="mcp-credentials-grid">
               <div class="mcp-credential-box">
                 <div class="mcp-box-top">
-                  <span class="mcp-box-label">Tu API Key (cabecera <code>x-api-key</code>)</span>
+                  <span class="mcp-box-label">Tu API Key (para autorizar OAuth o cabecera <code>x-api-key</code>)</span>
                   <div class="mcp-box-actions">
                     <button
                       type="button"
@@ -704,7 +704,7 @@
 
               <div class="mcp-credential-box">
                 <div class="mcp-box-top">
-                  <span class="mcp-box-label">Endpoint del servidor MCP (Streamable HTTP)</span>
+                  <span class="mcp-box-label">Endpoint del servidor MCP (OAuth 2.1 / Streamable HTTP)</span>
                   <div class="mcp-box-actions">
                     <button
                       type="button"
@@ -720,23 +720,26 @@
               </div>
             </div>
 
-            <div class="mcp-config-block">
+            <div class="mcp-prompt-block">
               <div class="mcp-box-top">
-                <span class="mcp-box-label">Configuración JSON lista para registrar el servidor MCP</span>
+                <span class="mcp-box-label">Prompt para tu agente de IA (crear el plugin y conectar el MCP)</span>
                 <button
                   type="button"
                   class="btn-mcp-primary"
-                  [class.copied]="copiedField() === 'config'"
-                  (click)="copyMcpConfig()"
+                  [class.copied]="copiedField() === 'prompt'"
+                  (click)="copyAgentPrompt()"
                 >
-                  {{ copiedField() === 'config' ? '¡Configuración copiada!' : 'Copiar configuración JSON' }}
+                  {{ copiedField() === 'prompt' ? '¡Prompt copiado!' : 'Copiar prompt' }}
                 </button>
               </div>
-              <pre class="mcp-json-pre"><code>{{ mcpConfigPreview() }}</code></pre>
+              <p class="mcp-prompt-hint">
+                Pega y lanza este prompt en tu agente para que cree el plugin y configure automáticamente la conexión al servidor MCP:
+              </p>
+              <pre class="mcp-prompt-pre"><code>{{ mcpAgentPrompt() }}</code></pre>
             </div>
 
             <div class="mcp-security-note" role="note">
-              <strong>Importante:</strong> este endpoint no admite autenticación <code>Bearer</code>; el agente debe enviar la clave en la cabecera <code>x-api-key</code>. Si cierras, reseteas o recuperas tu sesión en otro navegador, el hash de sesión cambiará y deberás actualizar la clave en tu agente.
+              <strong>Cómo conectarte:</strong> en agentes con inicio de sesión automático (<strong>Claude, ChatGPT, Cursor, VS Code</strong>), registra únicamente la <strong>URL del endpoint MCP</strong> y pega tu <strong>API Key</strong> cuando se abra la ventana de autorización OAuth 2.1. Si prefieres que tu agente lo configure creando un plugin, copia y lanza el <strong>prompt</strong> anterior. Si cierras, reseteas o recuperas tu sesión web, tu clave cambiará y deberás volver a autorizar al agente.
             </div>
           }
 

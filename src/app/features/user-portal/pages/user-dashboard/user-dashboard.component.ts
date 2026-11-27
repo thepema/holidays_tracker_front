@@ -98,25 +98,13 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
 
   /** Estado del apartado de API Key / Agente IA (MCP) */
   readonly mcpModalOpen = signal<boolean>(false);
-  readonly copiedField = signal<'token' | 'url' | 'config' | null>(null);
+  readonly copiedField = signal<'token' | 'url' | 'prompt' | null>(null);
   private copiedFieldTimer: ReturnType<typeof setTimeout> | null = null;
 
-  readonly mcpConfigPreview = computed<string>(() => {
+  readonly mcpAgentPrompt = computed<string>(() => {
     const tokenDisplay = this.state.apiToken() || '<TU_API_TOKEN>';
-    return JSON.stringify(
-      {
-        mcpServers: {
-          'holidays-tracker': {
-            url: this.state.mcpEndpointUrl(),
-            headers: {
-              'x-api-key': tokenDisplay,
-            },
-          },
-        },
-      },
-      null,
-      2
-    );
+    const urlDisplay = this.state.mcpEndpointUrl();
+    return `Crea un plugin para conectar el servidor MCP "holidays-tracker" con la URL ${urlDisplay} y autenticación mediante la cabecera x-api-key con el valor ${tokenDisplay}.`;
   });
 
   /**
@@ -384,33 +372,19 @@ export class UserDashboardComponent implements OnInit, OnDestroy {
     );
   }
 
-  protected copyMcpConfig(): void {
+  protected copyAgentPrompt(): void {
     const token = this.state.apiToken();
     if (!token) return;
-    const configJson = JSON.stringify(
-      {
-        mcpServers: {
-          'holidays-tracker': {
-            url: this.state.mcpEndpointUrl(),
-            headers: {
-              'x-api-key': token,
-            },
-          },
-        },
-      },
-      null,
-      2
-    );
     void this.copyText(
-      configJson,
-      'config',
-      'Configuración JSON para el agente de IA copiada al portapapeles.'
+      this.mcpAgentPrompt(),
+      'prompt',
+      'Prompt para el agente de IA copiado al portapapeles.'
     );
   }
 
   private async copyText(
     text: string,
-    field: 'token' | 'url' | 'config',
+    field: 'token' | 'url' | 'prompt',
     noticeMessage: string
   ): Promise<void> {
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) {
